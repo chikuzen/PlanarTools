@@ -2,6 +2,7 @@
 *.avs
 *.opensdf
 *.sdf
+*.sln
 *.suo
 *.vcxproj.filters
 *.user
