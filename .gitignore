@@ -1,0 +1,10 @@
+*.dll
+*.avs
+*.opensdf
+*.sdf
+*.suo
+*.vcxproj.filters
+*.user
+vs2013/Release/*
+vs2013/Debug/*
+vs2013/x64/*
