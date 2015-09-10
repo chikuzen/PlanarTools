@@ -117,12 +117,12 @@ planar_to_bgr24(int width, int height, const uint8_t* srcpg, int pitch_g,
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3, s4, s5;
         for (int x = 0; x < w; x += 32) {
-            s0 = load_reg((__m128i *)(srcpb + x) + 0);
-            s1 = load_reg((__m128i *)(srcpb + x) + 1);
-            s2 = load_reg((__m128i *)(srcpg + x) + 0);
-            s3 = load_reg((__m128i *)(srcpg + x) + 1);
-            s4 = load_reg((__m128i *)(srcpr + x) + 0);
-            s5 = load_reg((__m128i *)(srcpr + x) + 1);
+            s0 = load_reg((__m128i*)(srcpb + x) + 0);
+            s1 = load_reg((__m128i*)(srcpb + x) + 1);
+            s2 = load_reg((__m128i*)(srcpg + x) + 0);
+            s3 = load_reg((__m128i*)(srcpg + x) + 1);
+            s4 = load_reg((__m128i*)(srcpr + x) + 0);
+            s5 = load_reg((__m128i*)(srcpr + x) + 1);
 
             runpack_x6(s0, s1, s2, s3, s4, s5);
 
