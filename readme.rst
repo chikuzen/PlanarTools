@@ -97,8 +97,8 @@ alpha - planar format. only Y-plane is used. must be the same resolution of othe
 
 Note:
 =========
-- All filters are SSE2 optimized.
-- PlanarTools_vex.dll is VEX-SSE enabled version of PlanarTools.dll. It runs only on AVX capable machines.
+- All filters are SSE2 optimized. Thus these will cause crash on No SSE2 machine.
+
 
 Lisence:
 ==========
