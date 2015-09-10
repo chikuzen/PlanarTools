@@ -28,7 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 
 PackedToPlanar::PackedToPlanar(PClip _child) : GVFmod(_child)
 {
-    convert = get_planar_converter(vi.pixel_type);
+    convert = get_planar_converter(vi.pixel_type, vi.width);
     vi.pixel_type = vi_src.IsYUY2() ? VideoInfo::CS_YV16 : VideoInfo::CS_YV24;
 }
 

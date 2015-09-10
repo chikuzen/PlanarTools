@@ -67,7 +67,7 @@ using extract_plane = void(__stdcall *)(
 proc_transpose get_transpose_function(int pixel_type);
 
 
-packed_to_planar get_planar_converter(int pixel_type);
+packed_to_planar get_planar_converter(int pixel_type, int width);
 
 
 extract_plane get_extractor(int pixel_type, int width, int plane);

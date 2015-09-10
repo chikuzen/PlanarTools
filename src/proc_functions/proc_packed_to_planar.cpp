@@ -69,6 +69,7 @@ unpack_x6(__m128i& a, __m128i& b, __m128i& c, __m128i& d, __m128i& e, __m128i& f
 }
 
 
+template <int MODE>
 static void __stdcall
 bgr24_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
               uint8_t* dstpg, int pitch_g, uint8_t* dstpb, int pitch_b,
@@ -77,16 +78,8 @@ bgr24_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
     const int w = (width + 5) / 32 * 32;
     srcp += src_pitch * (height - 1);
 
-    const int mod = width - w;
-    const int w1 = mod > 5 ? 1 : 0;
-    const int w2 = mod > 10 ? 2 : 0;
-    const int w3 = mod > 16 ? 3 : 0;
-    const int w4 = mod > 21 ? 4 : 0;
-
-
-    __m128i s0, s1, s2, s3, s4, s5;
-
     for (int y = 0; y < height; ++y) {
+        __m128i s0, s1, s2, s3, s4, s5;
         for (int x = 0; x < w; x += 32) {
             s0 = load_reg((__m128i*)(srcp + 3 * x) + 0);
             s1 = load_reg((__m128i*)(srcp + 3 * x) + 1);
@@ -105,12 +98,12 @@ bgr24_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstpr + x) + 1, s5);
         }
 
-        if (mod > 0) {
+        if (MODE > 0) {
             s0 = load_reg((__m128i*)(srcp + 3 * w) +  0);
-            s1 = load_reg((__m128i*)(srcp + 3 * w) + w1);
-            s2 = load_reg((__m128i*)(srcp + 3 * w) + w2);
-            s3 = load_reg((__m128i*)(srcp + 3 * w) + w3);
-            s4 = load_reg((__m128i*)(srcp + 3 * w) + w4);
+            s1 = MODE > 1 ? load_reg((__m128i*)(srcp + 3 * w) + 1) : s0;
+            s2 = MODE > 2 ? load_reg((__m128i*)(srcp + 3 * w) + 2) : s1;
+            s3 = MODE > 3 ? load_reg((__m128i*)(srcp + 3 * w) + 3) : s2;
+            s4 = MODE > 4 ? load_reg((__m128i*)(srcp + 3 * w) + 4) : s3;
             s5 = s4;
 
             unpack_x6(s0, s1, s2, s3, s4, s5);
@@ -118,7 +111,7 @@ bgr24_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstpb + w), s0);
             stream_reg((__m128i*)(dstpg + w), s2);
             stream_reg((__m128i*)(dstpr + w), s4);
-            if (w3 > 0) {
+            if (MODE > 3) {
                 stream_reg((__m128i*)(dstpb + w + 16), s1);
                 stream_reg((__m128i*)(dstpg + w + 16), s3);
                 stream_reg((__m128i*)(dstpr + w + 16), s5);
@@ -155,7 +148,7 @@ unpack_x4(__m128i& a, __m128i& b, __m128i& c, __m128i& d)
     c = unpacklo8(b2, d2);
 }
 
-
+template <int MODE>
 static void __stdcall
 bgr32_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
               uint8_t* dstpg, int pitch_g, uint8_t* dstpb, int pitch_b,
@@ -164,12 +157,8 @@ bgr32_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
     const int w = (width + 3) / 16 * 16;
     srcp += src_pitch * (height - 1);
 
-    const int mod = width - w;
-    const int w1 = mod >  4 ? 1 : 0;
-    const int w2 = mod >  8 ? 2 : 0;
-
-    __m128i s0, s1, s2, s3;
     for (int y = 0; y < height; ++y) {
+        __m128i s0, s1, s2, s3;
         for (int x = 0; x < w; x += 16) {
             const __m128i* sx = (__m128i*)(srcp + 4 * x);
             s0 = load_reg(sx + 0);
@@ -183,11 +172,11 @@ bgr32_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstpg + x), s1);
             stream_reg((__m128i*)(dstpr + x), s2);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             const __m128i* sw = (__m128i*)(srcp + 4 * w);
-            s0 = load_reg(sw +  0);
-            s1 = load_reg(sw + w1);
-            s2 = load_reg(sw + w2);
+            s0 = load_reg((__m128i*)(srcp + 4 * w) + 0);
+            s1 = MODE > 1 ? load_reg((__m128i*)(srcp + 4 * w) + 1) : s0;
+            s2 = MODE > 2 ? load_reg((__m128i*)(srcp + 4 * w) + 2) : s1;
             s3 = s2;
 
             unpack_x4(s0, s1, s2, s3);
@@ -231,17 +220,13 @@ unpack_x4_yuy2(__m128i& a, __m128i& b, __m128i& c, __m128i& d)
     b = unpackhi8(a3, c3);
 }
 
-
+template <int MODE>
 static void __stdcall
 yuy2_to_yv16(const uint8_t* srcp, int width, int height, int src_pitch,
              uint8_t* dstpy, int pitch_y, uint8_t* dstpu, int pitch_u,
              uint8_t* dstpv, int pitch_v)
 {
     const int w = (width + 7) / 32 * 32;
-
-    const int mod = width - w;
-    const int w1 = mod > 8 ? 1 : 0;
-    const int w2 = mod > 16 ? 2 : 0;
 
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3;
@@ -259,16 +244,16 @@ yuy2_to_yv16(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstpu + x / 2), s2);
             stream_reg((__m128i*)(dstpv + x / 2), s3);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             s0 = load_reg((__m128i*)(srcp + 2 * w) + 0);
-            s1 = load_reg((__m128i*)(srcp + 2 * w) + w1);
-            s2 = load_reg((__m128i*)(srcp + 2 * w) + w2);
+            s1 = MODE > 1 ? load_reg((__m128i*)(srcp + 2 * w) + 1) : s0;
+            s2 = MODE > 2 ? load_reg((__m128i*)(srcp + 2 * w) + 2) : s1;
             s3 = s2;
 
             unpack_x4_yuy2(s0, s1, s2, s3);
 
             stream_reg((__m128i*)(dstpy + w), s0);
-            if (mod > 16) {
+            if (MODE > 2) {
                 stream_reg((__m128i*)(dstpy + w + 16), s1);
             }
             stream_reg((__m128i*)(dstpu + w / 2), s2);
@@ -281,18 +266,42 @@ yuy2_to_yv16(const uint8_t* srcp, int width, int height, int src_pitch,
     }
 }
 
-packed_to_planar get_planar_converter(int pixel_type)
+packed_to_planar get_planar_converter(int pixel_type, int width)
 {
-    switch (pixel_type) {
-    case VideoInfo::CS_YUY2:
-        return yuy2_to_yv16;
-    case VideoInfo::CS_BGR32:
-        return bgr32_to_yv24;
-    case VideoInfo::CS_BGR24:
-        return bgr24_to_yv24;
-    default:
-        return nullptr;
+    using std::make_pair;
+
+    std::map<std::pair<int, int>, packed_to_planar> func;
+
+    func[make_pair(VideoInfo::CS_BGR32, 0)] = bgr32_to_yv24<0>;
+    func[make_pair(VideoInfo::CS_BGR32, 1)] = bgr32_to_yv24<1>;
+    func[make_pair(VideoInfo::CS_BGR32, 2)] = bgr32_to_yv24<2>;
+    func[make_pair(VideoInfo::CS_BGR32, 3)] = bgr32_to_yv24<3>;
+
+    func[make_pair(VideoInfo::CS_BGR24, 0)] = bgr24_to_yv24<0>;
+    func[make_pair(VideoInfo::CS_BGR24, 1)] = bgr24_to_yv24<1>;
+    func[make_pair(VideoInfo::CS_BGR24, 2)] = bgr24_to_yv24<2>;
+    func[make_pair(VideoInfo::CS_BGR24, 3)] = bgr24_to_yv24<3>;
+    func[make_pair(VideoInfo::CS_BGR24, 4)] = bgr24_to_yv24<4>;
+    func[make_pair(VideoInfo::CS_BGR24, 5)] = bgr24_to_yv24<5>;
+
+    func[make_pair(VideoInfo::CS_YUY2, 0)] = yuy2_to_yv16<0>;
+    func[make_pair(VideoInfo::CS_YUY2, 1)] = yuy2_to_yv16<1>;
+    func[make_pair(VideoInfo::CS_YUY2, 2)] = yuy2_to_yv16<2>;
+    func[make_pair(VideoInfo::CS_YUY2, 3)] = yuy2_to_yv16<3>;
+
+    int mode;
+    if (pixel_type == VideoInfo::CS_BGR32) {
+        int w = width - (width + 3) / 16 * 16;
+        mode = w > 8 ? 3 : w > 4 ? 2 : w > 0 ? 1 : 0;
+    } else if (pixel_type == VideoInfo::CS_BGR24) {
+        int w = width - (width + 5) / 32 * 32;
+        mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
+    } else {
+        int w = width - (width + 7) / 32 * 32;
+        mode = w > 16 ? 3 : w > 8 ? 2 : w > 0 ? 1 : 0;
     }
+
+    return func[make_pair(pixel_type, mode)];
 }
 
 
