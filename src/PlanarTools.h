@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 #include "proc_functions/proc_functions.h"
 
 
-#define PLANAR_TOOLS_VERSION "0.0.0"
+#define PLANAR_TOOLS_VERSION "0.0.1"
 
 
 class GVFmod : public GenericVideoFilter
