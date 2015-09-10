@@ -29,7 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 PlanarToPacked::PlanarToPacked(PClip _child) : GVFmod(_child)
 {
     vi.pixel_type = vi.IsYV16() ? VideoInfo::CS_YUY2 : VideoInfo::CS_BGR24;
-    convert = get_packed_converter(vi.pixel_type);
+    convert = get_packed_converter(vi.pixel_type, vi.width);
 }
 
 
@@ -76,7 +76,7 @@ Yx3ToPacked::Yx3ToPacked(PClip c0, PClip c1, PClip c2, int pix_type)
     : GVFmod(c0), clip1(c1), clip2(c2)
 {
     vi.pixel_type = pix_type;
-    convert = get_packed_converter(pix_type);
+    convert = get_packed_converter(pix_type, vi.width);
     vi_src.pixel_type = VideoInfo::CS_Y8;
 }
 
@@ -146,7 +146,7 @@ PlanarToBGRA::PlanarToBGRA(PClip base, PClip _a) : GVFmod(base), alpha(_a)
 {
     vi_a = alpha->GetVideoInfo();
     vi_a.pixel_type = VideoInfo::CS_Y8;
-    convert = get_bgra_converter();
+    convert = get_bgra_converter(vi.width);
     vi.pixel_type = VideoInfo::CS_BGR32;
 }
 
@@ -212,7 +212,7 @@ create(AVSValue args, void* user_data, IScriptEnvironment* env)
 Yx4ToBGRA::Yx4ToBGRA(PClip cg, PClip cb, PClip cr, PClip ca)
  : GVFmod(cg), blue(cb), red(cr), alpha(ca)
 {
-    convert = get_bgra_converter();
+    convert = get_bgra_converter(vi.width);
     vi.pixel_type = VideoInfo::CS_BGR32;
     vi_src.pixel_type = VideoInfo::CS_Y8;
 }

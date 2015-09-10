@@ -73,9 +73,9 @@ packed_to_planar get_planar_converter(int pixel_type, int width);
 extract_plane get_extractor(int pixel_type, int width, int plane);
 
 
-planar_to_packed get_packed_converter(int pixel_type);
+planar_to_packed get_packed_converter(int pixel_type, int width);
 
 
-planar_to_bgra get_bgra_converter();
+planar_to_bgra get_bgra_converter(int width);
 
 #endif

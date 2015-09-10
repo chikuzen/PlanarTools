@@ -23,16 +23,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 */
 
 
+#include <map>
 #include "proc_functions.h"
 #include "simd.h"
 
+
+template <int MODE>
 static void __stdcall
 planar_to_yuy2(int width, int height, const uint8_t* srcpy, int pitch_y,
                const uint8_t* srcpu, int pitch_u, const uint8_t* srcpv,
                int pitch_v, uint8_t* dstp, int dst_pitch)
 {
     const int w = (width + 7) / 16 * 16;
-    const int mod = width - w;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < w; x += 16) {
@@ -47,7 +49,7 @@ planar_to_yuy2(int width, int height, const uint8_t* srcpy, int pitch_y,
             stream_reg((__m128i*)(dstp + 2 * x), yuv0);
             stream_reg((__m128i*)(dstp + 2 * x + 16), yuv1);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             __m128i y = load_reg((__m128i*)(srcpy + w));
             __m128i u = _mm_loadl_epi64((__m128i*)(srcpu + w / 2));
             __m128i v = _mm_loadl_epi64((__m128i*)(srcpv + w / 2));
@@ -104,6 +106,7 @@ runpack_x6(__m128i& a, __m128i& b, __m128i& c, __m128i& d, __m128i& e, __m128i& 
 }
 
 
+template <int MODE>
 static void __stdcall
 planar_to_bgr24(int width, int height, const uint8_t* srcpg, int pitch_g,
                 const uint8_t* srcpb, int pitch_b, const uint8_t* srcpr,
@@ -111,8 +114,6 @@ planar_to_bgr24(int width, int height, const uint8_t* srcpg, int pitch_g,
 {
     const int w = (width + 5) / 32 * 32;
     dstp += dst_pitch * (height - 1);
-
-    const int mod = width - w;
 
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3, s4, s5;
@@ -134,11 +135,11 @@ planar_to_bgr24(int width, int height, const uint8_t* srcpg, int pitch_g,
             stream_reg((__m128i*)(dstp + 3 * x) + 5, s5);
         }
 
-        if (mod > 0) {
+        if (MODE > 0) {
             s0 = load_reg((__m128i*)(srcpb + w));
             s2 = load_reg((__m128i*)(srcpg + w));
             s4 = load_reg((__m128i*)(srcpr + w));
-            if (mod > 16) {
+            if (MODE > 3) {
                 s1 = load_reg((__m128i*)(srcpb + w) + 1);
                 s3 = load_reg((__m128i*)(srcpg + w) + 1);
                 s5 = load_reg((__m128i*)(srcpr + w) + 1);
@@ -151,13 +152,13 @@ planar_to_bgr24(int width, int height, const uint8_t* srcpg, int pitch_g,
             runpack_x6(s0, s1, s2, s3, s4, s5);
 
             stream_reg((__m128i*)(dstp + 3 * w), s0);
-            if (mod > 5) {
+            if (MODE > 1) {
                 stream_reg((__m128i*)(dstp + 3 * w) + 1, s1);
-                if (mod > 10) {
+                if (MODE > 2) {
                     stream_reg((__m128i*)(dstp + 3 * w) + 2, s2);
-                    if (mod > 16) {
+                    if (MODE > 3) {
                         stream_reg((__m128i*)(dstp + 3 * w) + 3, s3);
-                        if (mod > 21) {
+                        if (MODE > 4) {
                             stream_reg((__m128i*)(dstp + 3 * w) + 4, s4);
                         }
                     }
@@ -188,6 +189,7 @@ unpack_x4(__m128i& a, __m128i& b, __m128i& c, __m128i& d)
 }
 
 
+template <int MODE>
 static void __stdcall
 planar_to_bgr32(int width, int height, const uint8_t* srcpg, int pitch_g,
                 const uint8_t* srcpb, int pitch_b, const uint8_t* srcpr,
@@ -196,8 +198,6 @@ planar_to_bgr32(int width, int height, const uint8_t* srcpg, int pitch_g,
 {
     const int w = (width + 3) / 16 * 16;
     dstp += dst_pitch * (height - 1);
-
-    const int mod = width - w;
 
     for (int y = 0; y < height; ++y) {
         __m128i sb, sg, sr, sa;
@@ -214,7 +214,7 @@ planar_to_bgr32(int width, int height, const uint8_t* srcpg, int pitch_g,
             stream_reg((__m128i*)(dstp + 4 * x) + 2, sr);
             stream_reg((__m128i*)(dstp + 4 * x) + 3, sa);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             sb = load_reg((__m128i*)(srcpb + w));
             sg = load_reg((__m128i*)(srcpb + w));
             sr = load_reg((__m128i*)(srcpb + w));
@@ -223,9 +223,9 @@ planar_to_bgr32(int width, int height, const uint8_t* srcpg, int pitch_g,
             unpack_x4(sb, sg, sr, sa);
 
             stream_reg((__m128i*)(dstp + 4 * w), sb);
-            if (mod > 4) {
+            if (MODE > 1) {
                 stream_reg((__m128i*)(dstp + 4 * w) + 1, sg);
-                if (mod > 8) {
+                if (MODE > 2) {
                     stream_reg((__m128i*)(dstp + 4 * w) + 2, sr);
                 }
             }
@@ -239,19 +239,44 @@ planar_to_bgr32(int width, int height, const uint8_t* srcpg, int pitch_g,
 }
 
 
-planar_to_packed get_packed_converter(int pixel_type)
+planar_to_packed get_packed_converter(int pixel_type, int width)
 {
-    switch (pixel_type) {
-    case VideoInfo::CS_BGR24:
-        return planar_to_bgr24;
-    case VideoInfo::CS_YUY2:
-        return planar_to_yuy2;
-    default:
-        return nullptr;
+    using std::make_pair;
+
+    std::map<std::pair<int, int>, planar_to_packed> func;
+
+    func[make_pair(VideoInfo::CS_BGR24, 0)] = planar_to_bgr24<0>;
+    func[make_pair(VideoInfo::CS_BGR24, 1)] = planar_to_bgr24<1>;
+    func[make_pair(VideoInfo::CS_BGR24, 2)] = planar_to_bgr24<2>;
+    func[make_pair(VideoInfo::CS_BGR24, 3)] = planar_to_bgr24<3>;
+    func[make_pair(VideoInfo::CS_BGR24, 4)] = planar_to_bgr24<4>;
+    func[make_pair(VideoInfo::CS_BGR24, 5)] = planar_to_bgr24<5>;
+
+    func[make_pair(VideoInfo::CS_YUY2, 0)] = planar_to_yuy2<0>;
+    func[make_pair(VideoInfo::CS_YUY2, 1)] = planar_to_yuy2<1>;
+
+    int mode;
+    if (pixel_type == VideoInfo::CS_BGR24) {
+        int w = width - (width + 5) / 32 * 32;
+        mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
+    } else {
+        mode = width - (width + 7) / 16 * 16 > 0 ? 1 : 0;
     }
+
+    return func[make_pair(pixel_type, mode)];
 }
 
-planar_to_bgra get_bgra_converter()
+planar_to_bgra get_bgra_converter(int width)
 {
-    return planar_to_bgr32;
+    planar_to_bgra array[] = {
+        planar_to_bgr32<0>,
+        planar_to_bgr32<1>,
+        planar_to_bgr32<2>,
+        planar_to_bgr32<3>
+    };
+
+    int w = width - (width + 3) / 16 * 16;
+    int mode = w > 8 ? 3 : w > 4 ? 2 : w > 0 ? 1 : 0;
+
+    return array[mode];
 }
