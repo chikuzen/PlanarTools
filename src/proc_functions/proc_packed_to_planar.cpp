@@ -23,6 +23,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 */
 
 
+#include <map>
+#include <tuple>
 #include "proc_functions.h"
 #include "simd.h"
 
@@ -294,51 +296,43 @@ packed_to_planar get_planar_converter(int pixel_type)
 }
 
 
+template <int PLANE, int MODE>
 static void __stdcall
 extract_plane_bgr24(const uint8_t* srcp, int width, int height, int src_pitch,
-                    uint8_t* dstp, int dst_pitch, int plane)
+                    uint8_t* dstp, int dst_pitch)
 {
     const int w = (width + 5) / 32 * 32;
     srcp += src_pitch * (height - 1);
 
-    const int mod = width - w;
-    const int w1 = mod > 5 ? 1 : 0;
-    const int w2 = mod > 10 ? 2 : 0;
-    const int w3 = mod > 16 ? 3 : 0;
-    const int w4 = mod > 21 ? 4 : 0;
-
     __m128i s0, s1, s2, s3, s4, s5;
-    __m128i& ss0 = plane == 0 ? s0 : plane == 1 ? s2 : s4;
-    __m128i& ss1 = plane == 0 ? s1 : plane == 1 ? s3 : s5;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < w; x += 32) {
-            const __m128i* sx = (__m128i*)(srcp + 3 * x);
-            s0 = load_reg(sx + 0);
-            s1 = load_reg(sx + 1);
-            s2 = load_reg(sx + 2);
-            s3 = load_reg(sx + 3);
-            s4 = load_reg(sx + 4);
-            s5 = load_reg(sx + 5);
+            s0 = load_reg((__m128i*)(srcp + 3 * x) + 0);
+            s1 = load_reg((__m128i*)(srcp + 3 * x) + 1);
+            s2 = load_reg((__m128i*)(srcp + 3 * x) + 2);
+            s3 = load_reg((__m128i*)(srcp + 3 * x) + 3);
+            s4 = load_reg((__m128i*)(srcp + 3 * x) + 4);
+            s5 = load_reg((__m128i*)(srcp + 3 * x) + 5);
 
             unpack_x6(s0, s1, s2, s3, s4, s5);
 
-            stream_reg((__m128i*)(dstp + x), ss0);
-            stream_reg((__m128i*)(dstp + x + 16), ss1);
+            stream_reg((__m128i*)(dstp + x), PLANE == 0 ? s0 : PLANE == 1 ? s2 : s4);
+            stream_reg((__m128i*)(dstp + x + 16), PLANE == 0 ? s1 : PLANE == 1 ? s3 : s5);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             s0 = load_reg((__m128i*)(srcp + 3 * w) + 0);
-            s1 = load_reg((__m128i*)(srcp + 3 * w) + 1);
-            s2 = load_reg((__m128i*)(srcp + 3 * w) + 2);
-            s3 = load_reg((__m128i*)(srcp + 3 * w) + 3);
-            s4 = load_reg((__m128i*)(srcp + 3 * w) + 4);
+            s1 = MODE > 1 ? load_reg((__m128i*)(srcp + 3 * w) + 1) : s0;
+            s2 = MODE > 2 ? load_reg((__m128i*)(srcp + 3 * w) + 2) : s1;
+            s3 = MODE > 3 ? load_reg((__m128i*)(srcp + 3 * w) + 3) : s2;
+            s4 = MODE > 4 ? load_reg((__m128i*)(srcp + 3 * w) + 4) : s3;
             s5 = s4;
 
             unpack_x6(s0, s1, s2, s3, s4, s5);
 
-            stream_reg((__m128i*)(dstp + w), ss0);
-            if (w3 > 0) {
-                stream_reg((__m128i*)(dstp + w + 16), ss1);
+            stream_reg((__m128i*)(dstp + w), PLANE == 0 ? s0 : PLANE == 1 ? s2 : s4);
+            if (MODE > 3) {
+                stream_reg((__m128i*)(dstp + w + 16), PLANE == 0 ? s1 : PLANE == 1 ? s3 : s5);
             }
         }
         srcp -= src_pitch;
@@ -347,27 +341,31 @@ extract_plane_bgr24(const uint8_t* srcp, int width, int height, int src_pitch,
 }
 
 
+template <int PLANE, int MODE>
 static void __stdcall
 extract_plane_bgr32(const uint8_t* srcp, int width, int height, int src_pitch,
-                    uint8_t* dstp, int dst_pitch, int plane)
+                    uint8_t* dstp, int dst_pitch)
 {
     const __m128i mask = _mm_set1_epi32(0xFF);
 
     const int w = (width + 3) / 16 * 16;
     srcp += src_pitch * (height - 1);
 
-    const int mod = width - w;
-    const int w1 = mod > 4 ? 1 : 0;
-    const int w2 = mod > 8 ? 2 : 0;
-
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3, t0, t1;
         for (int x = 0; x < w; x += 16) {
             const __m128i* sx = (__m128i*)(srcp + 4 * x);
-            s0 = mask & _mm_srli_epi32(load_reg(sx + 0), plane * 8);
-            s1 = mask & _mm_srli_epi32(load_reg(sx + 1), plane * 8);
-            s2 = mask & _mm_srli_epi32(load_reg(sx + 2), plane * 8);
-            s3 = mask & _mm_srli_epi32(load_reg(sx + 3), plane * 8);
+            if (PLANE == 0) {
+                s0 = mask & load_reg(sx + 0);
+                s1 = mask & load_reg(sx + 1);
+                s2 = mask & load_reg(sx + 2);
+                s3 = mask & load_reg(sx + 3);
+            } else {
+                s0 = mask & _mm_srli_epi32(load_reg(sx + 0), PLANE * 8);
+                s1 = mask & _mm_srli_epi32(load_reg(sx + 1), PLANE * 8);
+                s2 = mask & _mm_srli_epi32(load_reg(sx + 2), PLANE * 8);
+                s3 = mask & _mm_srli_epi32(load_reg(sx + 3), PLANE * 8);
+            }
 
             t0 = _mm_packs_epi32(s0, s1);
             t1 = _mm_packs_epi32(s2, s3);
@@ -375,11 +373,17 @@ extract_plane_bgr32(const uint8_t* srcp, int width, int height, int src_pitch,
 
             stream_reg((__m128i*)(dstp + x), t0);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             const __m128i* sw = (__m128i*)(srcp + 4 * w);
-            s0 = mask & _mm_srli_epi32(load_reg(sw + 0), plane * 8);
-            s1 = mask & _mm_srli_epi32(load_reg(sw + w1), plane * 8);
-            s2 = mask & _mm_srli_epi32(load_reg(sw + w2), plane * 8);
+            if (PLANE == 0) {
+                s0 = mask & load_reg(sw + 0);
+                s1 = MODE > 1 ? mask & load_reg(sw + 1) : s0;
+                s2 = MODE > 2 ? mask & load_reg(sw + 2) : s0;
+            } else {
+                s0 = mask & _mm_srli_epi32(load_reg(sw + 0), PLANE * 8);
+                s1 = MODE > 1 ? mask & _mm_srli_epi32(load_reg(sw + 1), PLANE * 8) : s0;
+                s2 = MODE > 2 ? mask & _mm_srli_epi32(load_reg(sw + 2), PLANE * 8) : s1;
+            }
 
             t0 = _mm_packs_epi32(s0, s1);
             t1 = _mm_packs_epi32(s2, s2);
@@ -393,9 +397,10 @@ extract_plane_bgr32(const uint8_t* srcp, int width, int height, int src_pitch,
 }
 
 
+template <int MODE>
 static void __stdcall
 extract_plane_yuy2_y(const uint8_t* srcp, int width, int height, int src_pitch,
-                     uint8_t* dstp, int dst_pitch, int plane)
+                     uint8_t* dstp, int dst_pitch)
 {
     const __m128i mask = _mm_set1_epi16(0xFF);
 
@@ -413,7 +418,7 @@ extract_plane_yuy2_y(const uint8_t* srcp, int width, int height, int src_pitch,
 
             stream_reg((__m128i*)(dstp + x), s0);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             s0 = mask & load_reg((__m128i*)(srcp + 2 * w));
 
             s0 = _mm_packus_epi16(s0, s0);
@@ -426,27 +431,23 @@ extract_plane_yuy2_y(const uint8_t* srcp, int width, int height, int src_pitch,
 }
 
 
+template <int PLANE, int MODE>
 static void __stdcall
 extract_plane_yuy2_uv(const uint8_t* srcp, int width, int height, int src_pitch,
-                      uint8_t* dstp, int dst_pitch, int plane)
+                      uint8_t* dstp, int dst_pitch)
 {
     const __m128i mask = _mm_set1_epi32(0xFF);
-    const int shift = plane == 1 ? 8 : 24;
 
     const int w = (width + 7) / 32 * 32;
-
-    const int mod = width - w;
-    const int w1 = mod > 8 ? 1 : 0;
-    const int w2 = mod > 16 ? 2 : 0;
 
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3;
         for (int x = 0; x < w; x += 32) {
             const __m128i* sx = (__m128i*)(srcp + 2 * x);
-            s0 = mask & _mm_srli_epi32(load_reg(sx + 0), shift);
-            s1 = mask & _mm_srli_epi32(load_reg(sx + 1), shift);
-            s2 = mask & _mm_srli_epi32(load_reg(sx + 2), shift);
-            s3 = mask & _mm_srli_epi32(load_reg(sx + 3), shift);
+            s0 = mask & _mm_srli_epi32(load_reg(sx + 0), PLANE == 1 ? 8 : 24);
+            s1 = mask & _mm_srli_epi32(load_reg(sx + 1), PLANE == 1 ? 8 : 24);
+            s2 = mask & _mm_srli_epi32(load_reg(sx + 2), PLANE == 1 ? 8 : 24);
+            s3 = mask & _mm_srli_epi32(load_reg(sx + 3), PLANE == 1 ? 8 : 24);
 
             s0 = _mm_packs_epi32(s0, s1);
             s2 = _mm_packs_epi32(s2, s3);
@@ -454,11 +455,11 @@ extract_plane_yuy2_uv(const uint8_t* srcp, int width, int height, int src_pitch,
 
             stream_reg((__m128i*)(dstp + x / 2), s0);
         }
-        if (mod > 0) {
+        if (MODE > 0) {
             const __m128i* sw = (__m128i*)(srcp + 2 * w);
-            s0 = mask & _mm_srli_epi32(load_reg(sw + 0), shift);
-            s1 = mask & _mm_srli_epi32(load_reg(sw + w1), shift);
-            s2 = mask & _mm_srli_epi32(load_reg(sw + w2), shift);
+            s0 = mask & _mm_srli_epi32(load_reg(sw + 0), PLANE == 1 ? 8 : 24);
+            s1 = MODE > 1 ? mask & _mm_srli_epi32(load_reg(sw + 1), PLANE == 1 ? 8 : 24) : s0;
+            s2 = MODE > 2 ? mask & _mm_srli_epi32(load_reg(sw + 2), PLANE == 1 ? 8 : 24) : s1;
 
             s0 = _mm_packs_epi32(s0, s1);
             s2 = _mm_packs_epi32(s2, s2);
@@ -473,16 +474,81 @@ extract_plane_yuy2_uv(const uint8_t* srcp, int width, int height, int src_pitch,
 
 
 
-extract_plane get_extractor(int pixel_type, int plane)
+extract_plane get_extractor(int pixel_type, int width, int plane)
 {
-    switch (pixel_type) {
-    case VideoInfo::CS_BGR24:
-        return extract_plane_bgr24;
-    case VideoInfo::CS_BGR32:
-        return extract_plane_bgr32;
-    case VideoInfo::CS_YUY2:
-        return plane == 0 ? extract_plane_yuy2_y : extract_plane_yuy2_uv;
-    default:
-        return nullptr;
+    using std::make_tuple;
+
+    std::map<std::tuple<int, int, int>, extract_plane> func;
+
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 0)] = extract_plane_bgr32<0, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 1)] = extract_plane_bgr32<0, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 2)] = extract_plane_bgr32<0, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 3)] = extract_plane_bgr32<0, 3>;
+
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 0)] = extract_plane_bgr32<1, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 1)] = extract_plane_bgr32<1, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 2)] = extract_plane_bgr32<1, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 3)] = extract_plane_bgr32<1, 3>;
+
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 0)] = extract_plane_bgr32<2, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 1)] = extract_plane_bgr32<2, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 2)] = extract_plane_bgr32<2, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 3)] = extract_plane_bgr32<2, 3>;
+
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 0)] = extract_plane_bgr32<3, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 1)] = extract_plane_bgr32<3, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 2)] = extract_plane_bgr32<3, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 3)] = extract_plane_bgr32<3, 3>;
+
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 0)] = extract_plane_bgr24<0, 0>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 1)] = extract_plane_bgr24<0, 1>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 2)] = extract_plane_bgr24<0, 2>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 3)] = extract_plane_bgr24<0, 3>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 4)] = extract_plane_bgr24<0, 4>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 5)] = extract_plane_bgr24<0, 5>;
+
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 0)] = extract_plane_bgr24<1, 0>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 1)] = extract_plane_bgr24<1, 1>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 2)] = extract_plane_bgr24<1, 2>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 3)] = extract_plane_bgr24<1, 3>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 4)] = extract_plane_bgr24<1, 4>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 5)] = extract_plane_bgr24<1, 5>;
+
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 0)] = extract_plane_bgr24<2, 0>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 1)] = extract_plane_bgr24<2, 1>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 2)] = extract_plane_bgr24<2, 2>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 3)] = extract_plane_bgr24<2, 3>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 4)] = extract_plane_bgr24<2, 4>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 5)] = extract_plane_bgr24<2, 5>;
+
+    func[make_tuple(VideoInfo::CS_YUY2, 0, 0)] = extract_plane_yuy2_y<0>;
+    func[make_tuple(VideoInfo::CS_YUY2, 0, 1)] = extract_plane_yuy2_y<1>;
+
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 0)] = extract_plane_yuy2_uv<1, 0>;
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 1)] = extract_plane_yuy2_uv<1, 1>;
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 2)] = extract_plane_yuy2_uv<1, 2>;
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 3)] = extract_plane_yuy2_uv<1, 3>;
+
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 0)] = extract_plane_yuy2_uv<2, 0>;
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 1)] = extract_plane_yuy2_uv<2, 1>;
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 2)] = extract_plane_yuy2_uv<2, 2>;
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 3)] = extract_plane_yuy2_uv<2, 3>;
+
+    int mode;
+    if (pixel_type == VideoInfo::CS_BGR32) {
+        int w = width - (width + 3) / 16 * 16;
+        mode = w > 8 ? 3 : w > 4 ? 2 : w > 0 ? 1 : 0;
+    } else if (pixel_type == VideoInfo::CS_BGR24) {
+        int w = width - (width + 5) / 32 * 32;
+        mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
+    } else {
+        if (plane > 0) {
+            int w = width - (width + 7) / 32 * 32;
+            mode = w > 16 ? 3 : w > 8 ? 2 : w > 0 ? 1 : 0;
+        } else {
+            mode = width - (width + 7) / 16 * 16 > 0 ? 1 : 0;
+        }
     }
+
+    return func[make_tuple(pixel_type, plane, mode)];
 }

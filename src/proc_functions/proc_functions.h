@@ -61,7 +61,7 @@ using planar_to_bgra = void(__stdcall *)(
 // plane mapping --- 0:YorB, 1:UorG, 2;VorR, 3:Alpha
 using extract_plane = void(__stdcall *)(
     const uint8_t* srcp, int width, int height, int src_pitch, uint8_t* dstp,
-    int dst_pitch, int plane);
+    int dst_pitch);
 
 
 proc_transpose get_transpose_function(int pixel_type);
@@ -70,7 +70,7 @@ proc_transpose get_transpose_function(int pixel_type);
 packed_to_planar get_planar_converter(int pixel_type);
 
 
-extract_plane get_extractor(int pixel_type, int plane);
+extract_plane get_extractor(int pixel_type, int width, int plane);
 
 
 planar_to_packed get_packed_converter(int pixel_type);

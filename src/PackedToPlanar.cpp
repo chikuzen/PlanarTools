@@ -70,7 +70,7 @@ ExtractPlane::ExtractPlane(PClip _child, int _plane, IScriptEnvironment* env)
     : GVFmod(_child),
     plane(_plane)
 {
-    extract = get_extractor(vi.pixel_type, plane);
+    extract = get_extractor(vi.pixel_type, vi.width, plane);
     vi.pixel_type = VideoInfo::CS_Y8;
     if (vi_src.pixel_type == VideoInfo::CS_YUY2 && plane > 0) {
         vi.width /= 2;
@@ -95,7 +95,7 @@ PVideoFrame __stdcall ExtractPlane::GetFrame(int n, IScriptEnvironment* env)
     auto dst = env->NewVideoFrame(vi);
 
     extract(src->GetReadPtr(), vi_src.width, vi_src.height, src->GetPitch(),
-        dst->GetWritePtr(), dst->GetPitch(), plane);
+        dst->GetWritePtr(), dst->GetPitch());
 
     return dst;
 }
