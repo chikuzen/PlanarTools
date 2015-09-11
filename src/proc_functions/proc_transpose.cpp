@@ -26,7 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 #include "proc_functions.h"
 #include "simd.h"
 
-
+#if 0
 static void __stdcall
 transpose_8x8(const uint8_t* srcp, uint8_t* dstp, const int width,
               const int height, const int src_pitch, const int dst_pitch)
@@ -94,7 +94,101 @@ transpose_8x8(const uint8_t* srcp, uint8_t* dstp, const int width,
     }
 
 }
+#endif
 
+static void __stdcall
+transpose_16x8(const uint8_t* srcp, uint8_t* dstp, const int width,
+const int height, const int src_pitch, const int dst_pitch)
+{
+    const int h = height / 8 * 8;
+    const int w = width / 16 * 16;
+
+    const uint8_t* s = srcp;
+
+    for (int y = 0; y < h; y += 8) {
+        uint8_t* d = dstp + y;
+        for (int x = 0; x < w; x += 16) {
+            __m128i s0 = load_reg((__m128i*)(s + x + 0 * src_pitch));
+            __m128i s1 = load_reg((__m128i*)(s + x + 1 * src_pitch));
+            __m128i ab07 = unpacklo8(s0, s1);
+            __m128i ab8F = unpackhi8(s0, s1);
+
+            s0 = load_reg((__m128i*)(s + x + 2 * src_pitch));
+            s1 = load_reg((__m128i*)(s + x + 3 * src_pitch));
+            __m128i cd07 = unpacklo8(s0, s1);
+            __m128i cd8F = unpackhi8(s0, s1);
+
+            s0 = load_reg((__m128i*)(s + x + 4 * src_pitch));
+            s1 = load_reg((__m128i*)(s + x + 5 * src_pitch));
+            __m128i ef07 = unpacklo8(s0, s1);
+            __m128i ef8F = unpackhi8(s0, s1);
+
+            s0 = load_reg((__m128i*)(s + x + 6 * src_pitch));
+            s1 = load_reg((__m128i*)(s + x + 7 * src_pitch));
+            __m128i gh07 = unpacklo8(s0, s1);
+            __m128i gh8F = unpackhi8(s0, s1);
+
+            __m128i abcdCF = unpackhi16(ab8F, cd8F);
+            __m128i efghCF = unpackhi16(ef8F, gh8F);
+
+            __m128i abcdefghCD = unpacklo32(abcdCF, efghCF);
+            _mm_storel_epi64((__m128i*)(d + 12 * dst_pitch), abcdefghCD);
+            _mm_storel_epi64((__m128i*)(d + 13 * dst_pitch), movehl(abcdefghCD));
+            __m128i abcdefghEF = unpackhi32(abcdCF, efghCF);
+            _mm_storel_epi64((__m128i*)(d + 14 * dst_pitch), abcdefghEF);
+            _mm_storel_epi64((__m128i*)(d + 15 * dst_pitch), movehl(abcdefghEF));
+
+            __m128i abcd8B = unpacklo16(ab8F, cd8F);
+            __m128i efgh8B = unpacklo16(ef8F, gh8F);
+
+            __m128i abcdefgh89 = unpacklo32(abcd8B, efgh8B);
+            _mm_storel_epi64((__m128i*)(d + 8 * dst_pitch), abcdefgh89);
+            _mm_storel_epi64((__m128i*)(d + 9 * dst_pitch), movehl(abcdefgh89));
+            __m128i abcdefghAB = unpackhi32(abcd8B, efgh8B);
+            _mm_storel_epi64((__m128i*)(d + 10 * dst_pitch), abcdefghAB);
+            _mm_storel_epi64((__m128i*)(d + 11 * dst_pitch), movehl(abcdefghAB));
+
+            __m128i abcd47 = unpackhi16(ab07, cd07);
+            __m128i efgh47 = unpackhi16(ef07, gh07);
+
+            __m128i abcdefgh45 = unpacklo32(abcd47, efgh47);
+            _mm_storel_epi64((__m128i*)(d + 4 * dst_pitch), abcdefgh45);
+            _mm_storel_epi64((__m128i*)(d + 5 * dst_pitch), movehl(abcdefgh45));
+            __m128i abcdefgh67 = unpackhi32(abcd47, efgh47);
+            _mm_storel_epi64((__m128i*)(d + 6 * dst_pitch), abcdefgh67);
+            _mm_storel_epi64((__m128i*)(d + 7 * dst_pitch), movehl(abcdefgh67));
+
+            __m128i abcd03 = unpacklo16(ab07, cd07);
+            __m128i efgh03 = unpacklo16(ef07, gh07);
+
+            __m128i abcdefgh01 = unpacklo32(abcd03, efgh03);
+            _mm_storel_epi64((__m128i*)(d + 0 * dst_pitch), abcdefgh01);
+            _mm_storel_epi64((__m128i*)(d + 1 * dst_pitch), movehl(abcdefgh01));
+            __m128i abcdefgh23 = unpackhi32(abcd03, efgh03);
+            _mm_storel_epi64((__m128i*)(d + 2 * dst_pitch), abcdefgh23);
+            _mm_storel_epi64((__m128i*)(d + 3 * dst_pitch), movehl(abcdefgh23));
+
+            d += dst_pitch * 15;
+        }
+        s += src_pitch * 8;
+    }
+
+
+    for (int y = h; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            dstp[y + x * dst_pitch] = srcp[x + y * src_pitch];
+        }
+    }
+
+    if (w != width) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = w; x < width; ++x) {
+                dstp[y + x * dst_pitch] = srcp[x + y * src_pitch];
+            }
+        }
+    }
+
+}
 
 static void __stdcall
 transpose_bgra(const uint8_t* srcp, uint8_t* dstp, const int rowsize,
@@ -169,6 +263,6 @@ proc_transpose get_transpose_function(int pixel_type)
     case VideoInfo::CS_BGR24:
         return nullptr;
     default:
-        return transpose_8x8;
+        return transpose_16x8;
     }
 }
