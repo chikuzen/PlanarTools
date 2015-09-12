@@ -84,6 +84,6 @@ planar_to_packed get_packed_converter(int pixel_type, int width);
 planar_to_bgra get_bgra_converter(int width);
 
 
-packed_to_packed get_24to32_converter(int width);
+packed_to_packed get_24_32_converter(int pixel_type, int width);
 
 #endif

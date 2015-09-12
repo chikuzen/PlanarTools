@@ -26,14 +26,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 #include "PlanarTools.h"
 
 
-Packed24To32::Packed24To32(PClip _child) : GVFmod(_child)
+PackedRGBToRGB::PackedRGBToRGB(PClip _child) : GVFmod(_child)
 {
-    convert = get_24to32_converter(vi.width);
-    vi.pixel_type = VideoInfo::CS_BGR32;
+    convert = get_24_32_converter(vi.pixel_type, vi.width);
+    vi.pixel_type = 
+        vi.pixel_type == VideoInfo::CS_BGR32 ? VideoInfo::CS_BGR24
+        : VideoInfo::CS_BGR32;
 }
 
 
-PVideoFrame __stdcall Packed24To32::GetFrame(int n, IScriptEnvironment* env)
+PVideoFrame __stdcall PackedRGBToRGB::GetFrame(int n, IScriptEnvironment* env)
 {
     auto src = child->GetFrame(n, env);
     if (!is_aligned_frame(src->GetReadPtr())) {
@@ -53,17 +55,19 @@ PVideoFrame __stdcall Packed24To32::GetFrame(int n, IScriptEnvironment* env)
 }
 
 
-AVSValue __cdecl Packed24To32::
+AVSValue __cdecl PackedRGBToRGB::
 create(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
     PClip clip = args[0].AsClip();
     const VideoInfo& vi = clip->GetVideoInfo();
-    if (!vi.IsRGB24()) {
-        env->ThrowError("RGB24To32: Input is not RGB24.");
+    if (!vi.IsRGB()) {
+        env->ThrowError("RGBToRGB: Input is not RGB.");
     }
 
     if (env->GetCPUFlags() & CPUF_SSSE3) {
-        return new Packed24To32(clip);
+        return new PackedRGBToRGB(clip);
     }
-    return env->Invoke("ConvertToRGB32", args);
+
+    const char* filter = vi.IsRGB24() ? "ConvertToRGB32" : "ConvertToRGB24";
+    return env->Invoke(filter, args);
 }
