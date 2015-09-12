@@ -144,9 +144,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\PackedToPacked.cpp" />
     <ClCompile Include="..\src\PackedToPlanar.cpp" />
     <ClCompile Include="..\src\PlanarTools.cpp" />
     <ClCompile Include="..\src\PlanarToPacked.cpp" />
+    <ClCompile Include="..\src\proc_functions\proc_packed_to_packed.cpp" />
     <ClCompile Include="..\src\proc_functions\proc_packed_to_planar.cpp" />
     <ClCompile Include="..\src\proc_functions\proc_planar_to_packed.cpp" />
     <ClCompile Include="..\src\proc_functions\proc_transpose.cpp" />

@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 */
 
 
-#include <emmintrin.h>
+#include <tmmintrin.h>
 
 #pragma warning(disable:4752)
 

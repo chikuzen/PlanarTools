@@ -64,6 +64,11 @@ using extract_plane = void(__stdcall *)(
     int dst_pitch);
 
 
+using packed_to_packed = void(__stdcall *)(
+    const uint8_t* srcp, int width, int height, int src_pitch, uint8_t* dstp,
+    int dst_pitch);
+
+
 proc_transpose get_transpose_function(int pixel_type);
 
 
@@ -77,5 +82,8 @@ planar_to_packed get_packed_converter(int pixel_type, int width);
 
 
 planar_to_bgra get_bgra_converter(int width);
+
+
+packed_to_packed get_24to32_converter(int width);
 
 #endif

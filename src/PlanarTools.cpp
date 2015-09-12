@@ -40,6 +40,7 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
     env->AddFunction("PlanarToPacked", "ccc", &Yx3ToPacked::create, nullptr);
     env->AddFunction("PlanarToRGB32", "cc", &PlanarToBGRA::create, nullptr);
     env->AddFunction("PlanarToRGB32", "cccc", &Yx4ToBGRA::create, nullptr);
+    env->AddFunction("RGB24To32", "c", &Packed24To32::create, nullptr);
 
     return "PlanarTools ver." PLANAR_TOOLS_VERSION " by OKA Motofumi";
 }

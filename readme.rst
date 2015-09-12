@@ -94,11 +94,15 @@ base - YV24 only. Each planes are mapped as follows.
 green, blue, red - planar formats clips. Only Y-planes are used.
 alpha - planar format. only Y-plane is used. must be the same resolution of others.
 
+RGB24To32:
+-------------
+
+Convert RGB24 clip to RGB32.
 
 Note:
 =========
 - All filters are SSE2 optimized. Thus these will cause crash on No SSE2 machine.
-
+- RGB24To32 requires SSSE3. If SSSE3 is not available on your machine, it invoke internal ConvertToRGB32 filter instead.
 
 Lisence:
 ==========
