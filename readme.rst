@@ -97,7 +97,12 @@ alpha - planar format. only Y-plane is used. must be the same resolution of othe
 RGB24To32:
 -------------
 
-Convert RGB24 clip to RGB32.
+Convert RGB24 clip to RGB32.::
+
+    RGB24To32(clip clip)
+
+clip - RGB24 only.
+
 
 Note:
 =========
