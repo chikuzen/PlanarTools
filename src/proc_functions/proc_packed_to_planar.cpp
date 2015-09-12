@@ -46,26 +46,26 @@ unpack_x6(__m128i& a, __m128i& b, __m128i& c, __m128i& d, __m128i& e, __m128i& f
     __m128i e1 = unpacklo8(c0, f0);
     __m128i f1 = unpackhi8(c0, f0);
 
-    __m128i a2 = unpacklo8(a1, d1);
-    __m128i b2 = unpackhi8(a1, d1);
-    __m128i c2 = unpacklo8(b1, e1);
-    __m128i d2 = unpackhi8(b1, e1);
-    __m128i e2 = unpacklo8(c1, f1);
-    __m128i f2 = unpackhi8(c1, f1);
+    a0 = unpacklo8(a1, d1);
+    b0 = unpackhi8(a1, d1);
+    c0 = unpacklo8(b1, e1);
+    d0 = unpackhi8(b1, e1);
+    e0 = unpacklo8(c1, f1);
+    f0 = unpackhi8(c1, f1);
 
-    __m128i a3 = unpacklo8(a2, d2);
-    __m128i b3 = unpackhi8(a2, d2);
-    __m128i c3 = unpacklo8(b2, e2);
-    __m128i d3 = unpackhi8(b2, e2);
-    __m128i e3 = unpacklo8(c2, f2);
-    __m128i f3 = unpackhi8(c2, f2);
+    a1 = unpacklo8(a0, d0);
+    b1 = unpackhi8(a0, d0);
+    c1 = unpacklo8(b0, e0);
+    d1 = unpackhi8(b0, e0);
+    e1 = unpacklo8(c0, f0);
+    f1 = unpackhi8(c0, f0);
 
-    a = unpacklo8(a3, d3);
-    b = unpackhi8(a3, d3);
-    c = unpacklo8(b3, e3);
-    d = unpackhi8(b3, e3);
-    e = unpacklo8(c3, f3);
-    f = unpackhi8(c3, f3);
+    a = unpacklo8(a1, d1);
+    b = unpackhi8(a1, d1);
+    c = unpacklo8(b1, e1);
+    d = unpackhi8(b1, e1);
+    e = unpacklo8(c1, f1);
+    f = unpackhi8(c1, f1);
 }
 
 
@@ -305,7 +305,73 @@ packed_to_planar get_planar_converter(int pixel_type, int width)
 }
 
 
-template <int PLANE, int MODE>
+template <int PLANE>
+static __forceinline void
+extract_x6_sse2(__m128i& a, __m128i& b, __m128i& c, __m128i& d, __m128i& e, __m128i& f)
+{
+    __m128i a0 = unpacklo8(a, d);
+    __m128i b0 = unpackhi8(a, d);
+    __m128i c0 = unpacklo8(b, e);
+    __m128i d0 = unpackhi8(b, e);
+    __m128i e0 = unpacklo8(c, f);
+    __m128i f0 = unpackhi8(c, f);
+
+    __m128i a1 = unpacklo8(a0, d0);
+    __m128i b1 = unpackhi8(a0, d0);
+    __m128i c1 = unpacklo8(b0, e0);
+    __m128i d1 = unpackhi8(b0, e0);
+    __m128i e1 = unpacklo8(c0, f0);
+    __m128i f1 = unpackhi8(c0, f0);
+
+    if (PLANE == 0) {
+        a0 = unpacklo8(a1, d1);
+        b0 = unpackhi8(a1, d1);
+        c0 = unpackhi8(b1, e1);
+        d0 = unpacklo8(c1, f1);
+        e0 = unpacklo8(a0, c0);
+        f0 = unpackhi8(b0, d0);
+    } else if (PLANE == 1) {
+        a0 = unpacklo8(a1, d1);
+        b0 = unpacklo8(b1, e1);
+        c0 = unpackhi8(b1, e1);
+        d0 = unpackhi8(c1, f1);
+        e0 = unpackhi8(a0, c0);
+        f0 = unpacklo8(b0, d0);
+    } else {
+        a0 = unpackhi8(a1, d1);
+        b0 = unpacklo8(b1, e1);
+        c0 = unpacklo8(c1, f1);
+        d0 = unpackhi8(c1, f1);
+        e0 = unpacklo8(a0, c0);
+        f0 = unpackhi8(b0, d0);
+    }
+
+    a = unpacklo8(e0, f0);
+    b = unpackhi8(e0, f0);
+}
+
+
+template <int PLANE>
+static __forceinline void
+extract_x6_ssse3(__m128i& a, __m128i& b, __m128i& c, __m128i& d, __m128i& e, __m128i& f)
+{
+    static const __m128i m0 = _mm_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 6, 9, 12, 15);
+    static const __m128i m1 = _mm_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 8, 11, 14);
+    static const __m128i m2 = _mm_setr_epi8(1, 4, 7, 10, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+    __m128i a0 = _mm_shuffle_epi8(a, PLANE == 0 ? m0 : PLANE == 1 ? m2 : m1);
+    __m128i b0 = _mm_shuffle_epi8(b, PLANE == 0 ? m1 : PLANE == 1 ? m0 : m2);
+    __m128i c0 = _mm_shuffle_epi8(c, PLANE == 0 ? m2 : PLANE == 1 ? m1 : m0);
+    a = _mm_alignr_epi8(_mm_alignr_epi8(c0, b0, 11), a0, 10);
+
+    a0 = _mm_shuffle_epi8(d, PLANE == 0 ? m0 : PLANE == 1 ? m2 : m1);
+    b0 = _mm_shuffle_epi8(e, PLANE == 0 ? m1 : PLANE == 1 ? m0 : m2);
+    c0 = _mm_shuffle_epi8(f, PLANE == 0 ? m2 : PLANE == 1 ? m1 : m0);
+    b = _mm_alignr_epi8(_mm_alignr_epi8(c0, b0, 11), a0, 10);
+}
+
+
+template <int PLANE, int MODE, bool SSSE3>
 static void __stdcall
 extract_plane_bgr24(const uint8_t* srcp, int width, int height, int src_pitch,
                     uint8_t* dstp, int dst_pitch)
@@ -324,10 +390,14 @@ extract_plane_bgr24(const uint8_t* srcp, int width, int height, int src_pitch,
             s4 = load_reg((__m128i*)(srcp + 3 * x) + 4);
             s5 = load_reg((__m128i*)(srcp + 3 * x) + 5);
 
-            unpack_x6(s0, s1, s2, s3, s4, s5);
+            if (SSSE3) {
+                extract_x6_ssse3<PLANE>(s0, s1, s2, s3, s4, s5);
+            } else {
+                extract_x6_sse2<PLANE>(s0, s1, s2, s3, s4, s5);
+            }
 
-            stream_reg((__m128i*)(dstp + x), PLANE == 0 ? s0 : PLANE == 1 ? s2 : s4);
-            stream_reg((__m128i*)(dstp + x + 16), PLANE == 0 ? s1 : PLANE == 1 ? s3 : s5);
+            stream_reg((__m128i*)(dstp + x), s0);
+            stream_reg((__m128i*)(dstp + x + 16), s1);
         }
         if (MODE > 0) {
             s0 = load_reg((__m128i*)(srcp + 3 * w) + 0);
@@ -337,11 +407,15 @@ extract_plane_bgr24(const uint8_t* srcp, int width, int height, int src_pitch,
             s4 = MODE > 4 ? load_reg((__m128i*)(srcp + 3 * w) + 4) : s3;
             s5 = s4;
 
-            unpack_x6(s0, s1, s2, s3, s4, s5);
+            if (SSSE3) {
+                extract_x6_ssse3<PLANE>(s0, s1, s2, s3, s4, s5);
+            } else {
+                extract_x6_sse2<PLANE>(s0, s1, s2, s3, s4, s5);
+            }
 
-            stream_reg((__m128i*)(dstp + w), PLANE == 0 ? s0 : PLANE == 1 ? s2 : s4);
+            stream_reg((__m128i*)(dstp + w), s0);
             if (MODE > 3) {
-                stream_reg((__m128i*)(dstp + w + 16), PLANE == 0 ? s1 : PLANE == 1 ? s3 : s5);
+                stream_reg((__m128i*)(dstp + w + 16), s1);
             }
         }
         srcp -= src_pitch;
@@ -483,74 +557,97 @@ extract_plane_yuy2_uv(const uint8_t* srcp, int width, int height, int src_pitch,
 
 
 
-extract_plane get_extractor(int pixel_type, int width, int plane)
+extract_plane get_extractor(int pixel_type, int width, int plane, bool ssse3)
 {
     using std::make_tuple;
 
-    std::map<std::tuple<int, int, int>, extract_plane> func;
+    std::map<std::tuple<int, int, int, bool>, extract_plane> func;
 
-    func[make_tuple(VideoInfo::CS_BGR32, 0, 0)] = extract_plane_bgr32<0, 0>;
-    func[make_tuple(VideoInfo::CS_BGR32, 0, 1)] = extract_plane_bgr32<0, 1>;
-    func[make_tuple(VideoInfo::CS_BGR32, 0, 2)] = extract_plane_bgr32<0, 2>;
-    func[make_tuple(VideoInfo::CS_BGR32, 0, 3)] = extract_plane_bgr32<0, 3>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 0, false)] = extract_plane_bgr32<0, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 1, false)] = extract_plane_bgr32<0, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 2, false)] = extract_plane_bgr32<0, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 0, 3, false)] = extract_plane_bgr32<0, 3>;
 
-    func[make_tuple(VideoInfo::CS_BGR32, 1, 0)] = extract_plane_bgr32<1, 0>;
-    func[make_tuple(VideoInfo::CS_BGR32, 1, 1)] = extract_plane_bgr32<1, 1>;
-    func[make_tuple(VideoInfo::CS_BGR32, 1, 2)] = extract_plane_bgr32<1, 2>;
-    func[make_tuple(VideoInfo::CS_BGR32, 1, 3)] = extract_plane_bgr32<1, 3>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 0, false)] = extract_plane_bgr32<1, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 1, false)] = extract_plane_bgr32<1, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 2, false)] = extract_plane_bgr32<1, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 1, 3, false)] = extract_plane_bgr32<1, 3>;
 
-    func[make_tuple(VideoInfo::CS_BGR32, 2, 0)] = extract_plane_bgr32<2, 0>;
-    func[make_tuple(VideoInfo::CS_BGR32, 2, 1)] = extract_plane_bgr32<2, 1>;
-    func[make_tuple(VideoInfo::CS_BGR32, 2, 2)] = extract_plane_bgr32<2, 2>;
-    func[make_tuple(VideoInfo::CS_BGR32, 2, 3)] = extract_plane_bgr32<2, 3>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 0, false)] = extract_plane_bgr32<2, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 1, false)] = extract_plane_bgr32<2, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 2, false)] = extract_plane_bgr32<2, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 2, 3, false)] = extract_plane_bgr32<2, 3>;
 
-    func[make_tuple(VideoInfo::CS_BGR32, 3, 0)] = extract_plane_bgr32<3, 0>;
-    func[make_tuple(VideoInfo::CS_BGR32, 3, 1)] = extract_plane_bgr32<3, 1>;
-    func[make_tuple(VideoInfo::CS_BGR32, 3, 2)] = extract_plane_bgr32<3, 2>;
-    func[make_tuple(VideoInfo::CS_BGR32, 3, 3)] = extract_plane_bgr32<3, 3>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 0, false)] = extract_plane_bgr32<3, 0>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 1, false)] = extract_plane_bgr32<3, 1>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 2, false)] = extract_plane_bgr32<3, 2>;
+    func[make_tuple(VideoInfo::CS_BGR32, 3, 3, false)] = extract_plane_bgr32<3, 3>;
 
-    func[make_tuple(VideoInfo::CS_BGR24, 0, 0)] = extract_plane_bgr24<0, 0>;
-    func[make_tuple(VideoInfo::CS_BGR24, 0, 1)] = extract_plane_bgr24<0, 1>;
-    func[make_tuple(VideoInfo::CS_BGR24, 0, 2)] = extract_plane_bgr24<0, 2>;
-    func[make_tuple(VideoInfo::CS_BGR24, 0, 3)] = extract_plane_bgr24<0, 3>;
-    func[make_tuple(VideoInfo::CS_BGR24, 0, 4)] = extract_plane_bgr24<0, 4>;
-    func[make_tuple(VideoInfo::CS_BGR24, 0, 5)] = extract_plane_bgr24<0, 5>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 0, true)] = extract_plane_bgr24<0, 0, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 1, true)] = extract_plane_bgr24<0, 1, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 2, true)] = extract_plane_bgr24<0, 2, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 3, true)] = extract_plane_bgr24<0, 3, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 4, true)] = extract_plane_bgr24<0, 4, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 5, true)] = extract_plane_bgr24<0, 5, true>;
 
-    func[make_tuple(VideoInfo::CS_BGR24, 1, 0)] = extract_plane_bgr24<1, 0>;
-    func[make_tuple(VideoInfo::CS_BGR24, 1, 1)] = extract_plane_bgr24<1, 1>;
-    func[make_tuple(VideoInfo::CS_BGR24, 1, 2)] = extract_plane_bgr24<1, 2>;
-    func[make_tuple(VideoInfo::CS_BGR24, 1, 3)] = extract_plane_bgr24<1, 3>;
-    func[make_tuple(VideoInfo::CS_BGR24, 1, 4)] = extract_plane_bgr24<1, 4>;
-    func[make_tuple(VideoInfo::CS_BGR24, 1, 5)] = extract_plane_bgr24<1, 5>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 0, true)] = extract_plane_bgr24<1, 0, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 1, true)] = extract_plane_bgr24<1, 1, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 2, true)] = extract_plane_bgr24<1, 2, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 3, true)] = extract_plane_bgr24<1, 3, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 4, true)] = extract_plane_bgr24<1, 4, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 5, true)] = extract_plane_bgr24<1, 5, true>;
 
-    func[make_tuple(VideoInfo::CS_BGR24, 2, 0)] = extract_plane_bgr24<2, 0>;
-    func[make_tuple(VideoInfo::CS_BGR24, 2, 1)] = extract_plane_bgr24<2, 1>;
-    func[make_tuple(VideoInfo::CS_BGR24, 2, 2)] = extract_plane_bgr24<2, 2>;
-    func[make_tuple(VideoInfo::CS_BGR24, 2, 3)] = extract_plane_bgr24<2, 3>;
-    func[make_tuple(VideoInfo::CS_BGR24, 2, 4)] = extract_plane_bgr24<2, 4>;
-    func[make_tuple(VideoInfo::CS_BGR24, 2, 5)] = extract_plane_bgr24<2, 5>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 0, true)] = extract_plane_bgr24<0, 0, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 1, true)] = extract_plane_bgr24<0, 1, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 2, true)] = extract_plane_bgr24<0, 2, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 3, true)] = extract_plane_bgr24<0, 3, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 4, true)] = extract_plane_bgr24<0, 4, true>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 5, true)] = extract_plane_bgr24<0, 5, true>;
 
-    func[make_tuple(VideoInfo::CS_YUY2, 0, 0)] = extract_plane_yuy2_y<0>;
-    func[make_tuple(VideoInfo::CS_YUY2, 0, 1)] = extract_plane_yuy2_y<1>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 0, false)] = extract_plane_bgr24<0, 0, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 1, false)] = extract_plane_bgr24<0, 1, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 2, false)] = extract_plane_bgr24<0, 2, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 3, false)] = extract_plane_bgr24<0, 3, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 4, false)] = extract_plane_bgr24<0, 4, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 0, 5, false)] = extract_plane_bgr24<0, 5, false>;
 
-    func[make_tuple(VideoInfo::CS_YUY2, 1, 0)] = extract_plane_yuy2_uv<1, 0>;
-    func[make_tuple(VideoInfo::CS_YUY2, 1, 1)] = extract_plane_yuy2_uv<1, 1>;
-    func[make_tuple(VideoInfo::CS_YUY2, 1, 2)] = extract_plane_yuy2_uv<1, 2>;
-    func[make_tuple(VideoInfo::CS_YUY2, 1, 3)] = extract_plane_yuy2_uv<1, 3>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 0, false)] = extract_plane_bgr24<1, 0, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 1, false)] = extract_plane_bgr24<1, 1, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 2, false)] = extract_plane_bgr24<1, 2, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 3, false)] = extract_plane_bgr24<1, 3, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 4, false)] = extract_plane_bgr24<1, 4, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 1, 5, false)] = extract_plane_bgr24<1, 5, false>;
 
-    func[make_tuple(VideoInfo::CS_YUY2, 2, 0)] = extract_plane_yuy2_uv<2, 0>;
-    func[make_tuple(VideoInfo::CS_YUY2, 2, 1)] = extract_plane_yuy2_uv<2, 1>;
-    func[make_tuple(VideoInfo::CS_YUY2, 2, 2)] = extract_plane_yuy2_uv<2, 2>;
-    func[make_tuple(VideoInfo::CS_YUY2, 2, 3)] = extract_plane_yuy2_uv<2, 3>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 0, false)] = extract_plane_bgr24<2, 0, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 1, false)] = extract_plane_bgr24<2, 1, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 2, false)] = extract_plane_bgr24<2, 2, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 3, false)] = extract_plane_bgr24<2, 3, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 4, false)] = extract_plane_bgr24<2, 4, false>;
+    func[make_tuple(VideoInfo::CS_BGR24, 2, 5, false)] = extract_plane_bgr24<2, 5, false>;
+
+    func[make_tuple(VideoInfo::CS_YUY2, 0, 0, false)] = extract_plane_yuy2_y<0>;
+    func[make_tuple(VideoInfo::CS_YUY2, 0, 1, false)] = extract_plane_yuy2_y<1>;
+
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 0, false)] = extract_plane_yuy2_uv<1, 0>;
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 1, false)] = extract_plane_yuy2_uv<1, 1>;
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 2, false)] = extract_plane_yuy2_uv<1, 2>;
+    func[make_tuple(VideoInfo::CS_YUY2, 1, 3, false)] = extract_plane_yuy2_uv<1, 3>;
+
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 0, false)] = extract_plane_yuy2_uv<2, 0>;
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 1, false)] = extract_plane_yuy2_uv<2, 1>;
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 2, false)] = extract_plane_yuy2_uv<2, 2>;
+    func[make_tuple(VideoInfo::CS_YUY2, 2, 3, false)] = extract_plane_yuy2_uv<2, 3>;
 
     int mode;
     if (pixel_type == VideoInfo::CS_BGR32) {
         int w = width - (width + 3) / 16 * 16;
         mode = w > 8 ? 3 : w > 4 ? 2 : w > 0 ? 1 : 0;
+        ssse3 = false;
     } else if (pixel_type == VideoInfo::CS_BGR24) {
         int w = width - (width + 5) / 32 * 32;
         mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
     } else {
+        ssse3 = false;
         if (plane > 0) {
             int w = width - (width + 7) / 32 * 32;
             mode = w > 16 ? 3 : w > 8 ? 2 : w > 0 ? 1 : 0;
@@ -559,5 +656,5 @@ extract_plane get_extractor(int pixel_type, int width, int plane)
         }
     }
 
-    return func[make_tuple(pixel_type, plane, mode)];
+    return func[make_tuple(pixel_type, plane, mode, ssse3)];
 }
