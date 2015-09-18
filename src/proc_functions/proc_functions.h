@@ -78,7 +78,7 @@ packed_to_planar get_planar_converter(int pixel_type, int width);
 extract_plane get_extractor(int pixel_type, int width, int plane, bool ssse3);
 
 
-planar_to_packed get_packed_converter(int pixel_type, int width);
+planar_to_packed get_packed_converter(int pixel_type, int width, bool ssse3);
 
 
 planar_to_bgra get_bgra_converter(int width);

@@ -26,10 +26,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 #include "PlanarTools.h"
 
 
-PlanarToPacked::PlanarToPacked(PClip _child) : GVFmod(_child)
+PlanarToPacked::PlanarToPacked(PClip _child, bool ssse3) : GVFmod(_child)
 {
     vi.pixel_type = vi.IsYV16() ? VideoInfo::CS_YUY2 : VideoInfo::CS_BGR24;
-    convert = get_packed_converter(vi.pixel_type, vi.width);
+    convert = get_packed_converter(vi.pixel_type, vi.width, ssse3);
 }
 
 
@@ -65,18 +65,21 @@ create(AVSValue args, void* user_data, IScriptEnvironment* env)
     if (!vi.IsYV24() && !vi.IsYV16()) {
         env->ThrowError("PlanarToPacked: input is unsupported format.");
     }
-    return new PlanarToPacked(clip);
+
+    bool ssse3 = env->GetCPUFlags() & CPUF_SSSE3 ? true : false;
+
+    return new PlanarToPacked(clip, ssse3);
 }
 
 
 
 
 
-Yx3ToPacked::Yx3ToPacked(PClip c0, PClip c1, PClip c2, int pix_type)
+Yx3ToPacked::Yx3ToPacked(PClip c0, PClip c1, PClip c2, int pix_type, bool ssse3)
     : GVFmod(c0), clip1(c1), clip2(c2)
 {
     vi.pixel_type = pix_type;
-    convert = get_packed_converter(pix_type, vi.width);
+    convert = get_packed_converter(pix_type, vi.width, ssse3);
     vi_src.pixel_type = VideoInfo::CS_Y8;
 }
 
@@ -135,7 +138,9 @@ create(AVSValue args, void* user_data, IScriptEnvironment* env)
     int output_pixel_type =
         vi0.width == vi1.width ? VideoInfo::CS_BGR24 : VideoInfo::CS_YUY2;
 
-    return new Yx3ToPacked(c0, c1, c2, output_pixel_type);
+    bool ssse3 = env->GetCPUFlags() & CPUF_SSSE3 ? true : false;
+
+    return new Yx3ToPacked(c0, c1, c2, output_pixel_type, ssse3);
 }
 
 

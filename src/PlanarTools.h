@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 #include "proc_functions/proc_functions.h"
 
 
-#define PLANAR_TOOLS_VERSION "0.2.1"
+#define PLANAR_TOOLS_VERSION "0.2.2"
 
 
 class GVFmod : public GenericVideoFilter
@@ -98,7 +98,7 @@ class PlanarToPacked : public GVFmod
     planar_to_packed convert;
 
 public:
-    PlanarToPacked(PClip child);
+    PlanarToPacked(PClip child, bool ssse3);
     ~PlanarToPacked(){}
     PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
     static AVSValue __cdecl create(
@@ -114,7 +114,7 @@ class Yx3ToPacked : public GVFmod
     planar_to_packed convert;
 
 public:
-    Yx3ToPacked(PClip c0, PClip c1, PClip c2, int pix_type);
+    Yx3ToPacked(PClip c0, PClip c1, PClip c2, int pix_type, bool ssse3);
     ~Yx3ToPacked(){}
     PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
     static AVSValue __cdecl create(

@@ -227,6 +227,58 @@ planar_to_bgr24(int width, int height, const uint8_t* srcpg, int pitch_g,
     }
 }
 
+template <int MODE>
+static void __stdcall
+planar_to_bgr24_ssse3(int width, int height, const uint8_t* srcpg, int pitch_g,
+                      const uint8_t* srcpb, int pitch_b, const uint8_t* srcpr,
+                      int pitch_r, uint8_t* dstp, int dst_pitch)
+{
+    const int w = (width + 5) / 16 * 16;
+    static const __m128i mask0 =
+        _mm_setr_epi8(0, 6, 11, 1, 7, 12, 2, 8, 13, 3, 9, 14, 4, 10, 15, 5);
+    static const __m128i mask1 =
+        _mm_setr_epi8(5, 11, 0, 6, 12, 1, 7, 13, 2, 8, 14, 3, 9, 15, 4, 10);
+    static const __m128i mask2 =
+        _mm_setr_epi8(10, 0, 5, 11, 1, 6, 12, 2, 7, 13, 3, 8, 14, 4, 9, 15);
+
+    dstp += dst_pitch * (height - 1);
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < w; x += 16) {
+            __m128i sb, sg, sr, t;
+
+            sb = load_reg((__m128i*)(srcpb + x));
+            sg = load_reg((__m128i*)(srcpg + x));
+            sr = load_reg((__m128i*)(srcpr + x));
+
+            t = _mm_alignr_epi8(sr, _mm_slli_si128(sg, 11), 11);
+            t = _mm_alignr_epi8(t, _mm_slli_si128(sb, 10), 10);
+            t = _mm_shuffle_epi8(t, mask0);
+            stream_reg((__m128i*)(dstp + 3 * x), t);
+
+            t = _mm_alignr_epi8(_mm_srli_si128(sr, 5), _mm_slli_si128(sg, 5), 10);
+            t = _mm_alignr_epi8(t, _mm_slli_si128(sb, 5), 11);
+            t = _mm_shuffle_epi8(t, mask1);
+            stream_reg((__m128i*)(dstp + 3 * x + 16), t);
+
+            t = _mm_alignr_epi8(_mm_srli_si128(sr, 10), sg, 11);
+            t = _mm_alignr_epi8(t, sb, 11);
+            t = _mm_shuffle_epi8(t, mask2);
+            stream_reg((__m128i*)(dstp + 3 * x + 32), t);
+        }
+        if (MODE > 0) {
+            for (int x = w; x < width; ++x) {
+                dstp[3 * x + 0] = srcpb[x];
+                dstp[3 * x + 1] = srcpg[x];
+                dstp[3 * x + 2] = srcpr[x];
+            }
+        }
+        srcpb += pitch_b;
+        srcpg += pitch_g;
+        srcpr += pitch_r;
+        dstp -= dst_pitch;
+    }
+}
 
 static __forceinline void
 unpack_x4(__m128i& a, __m128i& b, __m128i& c, __m128i& d)
@@ -294,19 +346,23 @@ planar_to_bgr32(int width, int height, const uint8_t* srcpg, int pitch_g,
 }
 
 
-planar_to_packed get_packed_converter(int pixel_type, int width)
+planar_to_packed get_packed_converter(int pixel_type, int width, bool ssse3)
 {
     using std::make_pair;
 
     std::map<std::pair<int, int>, planar_to_packed> func;
 
-    func[make_pair(VideoInfo::CS_BGR24, 0)] = planar_to_bgr24<0>;
-    func[make_pair(VideoInfo::CS_BGR24, 1)] = planar_to_bgr24<1>;
-    func[make_pair(VideoInfo::CS_BGR24, 2)] = planar_to_bgr24<2>;
-    func[make_pair(VideoInfo::CS_BGR24, 3)] = planar_to_bgr24<3>;
-    func[make_pair(VideoInfo::CS_BGR24, 4)] = planar_to_bgr24<4>;
-    func[make_pair(VideoInfo::CS_BGR24, 5)] = planar_to_bgr24<5>;
-
+    if (ssse3) {
+        func[make_pair(VideoInfo::CS_BGR24, 0)] = planar_to_bgr24_ssse3<0>;
+        func[make_pair(VideoInfo::CS_BGR24, 1)] = planar_to_bgr24_ssse3<1>;
+    } else {
+        func[make_pair(VideoInfo::CS_BGR24, 0)] = planar_to_bgr24<0>;
+        func[make_pair(VideoInfo::CS_BGR24, 1)] = planar_to_bgr24<1>;
+        func[make_pair(VideoInfo::CS_BGR24, 2)] = planar_to_bgr24<2>;
+        func[make_pair(VideoInfo::CS_BGR24, 3)] = planar_to_bgr24<3>;
+        func[make_pair(VideoInfo::CS_BGR24, 4)] = planar_to_bgr24<4>;
+        func[make_pair(VideoInfo::CS_BGR24, 5)] = planar_to_bgr24<5>;
+    }
     func[make_pair(VideoInfo::CS_YUY2, 0)] = planar_to_yuy2<0>;
     func[make_pair(VideoInfo::CS_YUY2, 1)] = planar_to_yuy2<1>;
     /*
@@ -318,12 +374,16 @@ planar_to_packed get_packed_converter(int pixel_type, int width)
 
     int mode;
     if (pixel_type == VideoInfo::CS_BGR24) {
-        int w = width - (width + 5) / 32 * 32;
-        mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
+        if (!ssse3) {
+            int w = width - (width + 5) / 32 * 32;
+            mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
+        } else {
+            mode = !!(width - (width + 5) / 16 * 16);
+        }
     } else {
         //int w = width - (width + 7) / 32 * 32;
         //mode = w > 16 ? 3 : w > 8 ? 2 : w > 0 ? 1 : 0;
-        mode = width - (width + 7) / 16 * 16 > 0 ? 1 : 0;
+        mode = !!(width - (width + 7) / 16 * 16);
     }
 
     return func[make_pair(pixel_type, mode)];
