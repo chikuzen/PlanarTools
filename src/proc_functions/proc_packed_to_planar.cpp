@@ -160,11 +160,10 @@ bgr32_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3;
         for (int x = 0; x < w; x += 16) {
-            const __m128i* sx = (__m128i*)(srcp + 4 * x);
-            s0 = load_reg(sx + 0);
-            s1 = load_reg(sx + 1);
-            s2 = load_reg(sx + 2);
-            s3 = load_reg(sx + 3);
+            s0 = load_reg((__m128i*)(srcp + 4 * x) + 0);
+            s1 = load_reg((__m128i*)(srcp + 4 * x) + 1);
+            s2 = load_reg((__m128i*)(srcp + 4 * x) + 2);
+            s3 = load_reg((__m128i*)(srcp + 4 * x) + 3);
 
             unpack_x4(s0, s1, s2, s3);
 
@@ -173,7 +172,6 @@ bgr32_to_yv24(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstpr + x), s2);
         }
         if (MODE > 0) {
-            const __m128i* sw = (__m128i*)(srcp + 4 * w);
             s0 = load_reg((__m128i*)(srcp + 4 * w) + 0);
             s1 = MODE > 1 ? load_reg((__m128i*)(srcp + 4 * w) + 1) : s0;
             s2 = MODE > 2 ? load_reg((__m128i*)(srcp + 4 * w) + 2) : s1;
@@ -231,11 +229,10 @@ yuy2_to_yv16(const uint8_t* srcp, int width, int height, int src_pitch,
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3;
         for (int x = 0; x < w; x += 32) {
-            const __m128i* sx = (__m128i*)(srcp + 2 * x);
-            s0 = load_reg(sx + 0);
-            s1 = load_reg(sx + 1);
-            s2 = load_reg(sx + 2);
-            s3 = load_reg(sx + 3);
+            s0 = load_reg((__m128i*)(srcp + 2 * x) + 0);
+            s1 = load_reg((__m128i*)(srcp + 2 * x) + 1);
+            s2 = load_reg((__m128i*)(srcp + 2 * x) + 2);
+            s3 = load_reg((__m128i*)(srcp + 2 * x) + 3);
 
             unpack_x4_yuy2(s0, s1, s2, s3);
 
@@ -437,17 +434,16 @@ extract_plane_bgr32(const uint8_t* srcp, int width, int height, int src_pitch,
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3, t0, t1;
         for (int x = 0; x < w; x += 16) {
-            const __m128i* sx = (__m128i*)(srcp + 4 * x);
             if (PLANE == 0) {
-                s0 = mask & load_reg(sx + 0);
-                s1 = mask & load_reg(sx + 1);
-                s2 = mask & load_reg(sx + 2);
-                s3 = mask & load_reg(sx + 3);
+                s0 = mask & load_reg((__m128i*)(srcp + 4 * x) + 0);
+                s1 = mask & load_reg((__m128i*)(srcp + 4 * x) + 1);
+                s2 = mask & load_reg((__m128i*)(srcp + 4 * x) + 2);
+                s3 = mask & load_reg((__m128i*)(srcp + 4 * x) + 3);
             } else {
-                s0 = mask & _mm_srli_epi32(load_reg(sx + 0), PLANE * 8);
-                s1 = mask & _mm_srli_epi32(load_reg(sx + 1), PLANE * 8);
-                s2 = mask & _mm_srli_epi32(load_reg(sx + 2), PLANE * 8);
-                s3 = mask & _mm_srli_epi32(load_reg(sx + 3), PLANE * 8);
+                s0 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * x) + 0), PLANE * 8);
+                s1 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * x) + 1), PLANE * 8);
+                s2 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * x) + 2), PLANE * 8);
+                s3 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * x) + 3), PLANE * 8);
             }
 
             t0 = _mm_packs_epi32(s0, s1);
@@ -457,15 +453,14 @@ extract_plane_bgr32(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstp + x), t0);
         }
         if (MODE > 0) {
-            const __m128i* sw = (__m128i*)(srcp + 4 * w);
             if (PLANE == 0) {
-                s0 = mask & load_reg(sw + 0);
-                s1 = MODE > 1 ? mask & load_reg(sw + 1) : s0;
-                s2 = MODE > 2 ? mask & load_reg(sw + 2) : s0;
+                s0 = mask & load_reg((__m128i*)(srcp + 4 * w) + 0);
+                s1 = MODE > 1 ? mask & load_reg((__m128i*)(srcp + 4 * w) + 1) : s0;
+                s2 = MODE > 2 ? mask & load_reg((__m128i*)(srcp + 4 * w) + 2) : s0;
             } else {
-                s0 = mask & _mm_srli_epi32(load_reg(sw + 0), PLANE * 8);
-                s1 = MODE > 1 ? mask & _mm_srli_epi32(load_reg(sw + 1), PLANE * 8) : s0;
-                s2 = MODE > 2 ? mask & _mm_srli_epi32(load_reg(sw + 2), PLANE * 8) : s1;
+                s0 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * w) + 0), PLANE * 8);
+                s1 = MODE > 1 ? mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * w) + 1), PLANE * 8) : s0;
+                s2 = MODE > 2 ? mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 4 * w) + 2), PLANE * 8) : s1;
             }
 
             t0 = _mm_packs_epi32(s0, s1);
@@ -526,11 +521,10 @@ extract_plane_yuy2_uv(const uint8_t* srcp, int width, int height, int src_pitch,
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, s2, s3;
         for (int x = 0; x < w; x += 32) {
-            const __m128i* sx = (__m128i*)(srcp + 2 * x);
-            s0 = mask & _mm_srli_epi32(load_reg(sx + 0), PLANE == 1 ? 8 : 24);
-            s1 = mask & _mm_srli_epi32(load_reg(sx + 1), PLANE == 1 ? 8 : 24);
-            s2 = mask & _mm_srli_epi32(load_reg(sx + 2), PLANE == 1 ? 8 : 24);
-            s3 = mask & _mm_srli_epi32(load_reg(sx + 3), PLANE == 1 ? 8 : 24);
+            s0 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * x) + 0), PLANE == 1 ? 8 : 24);
+            s1 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * x) + 1), PLANE == 1 ? 8 : 24);
+            s2 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * x) + 2), PLANE == 1 ? 8 : 24);
+            s3 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * x) + 3), PLANE == 1 ? 8 : 24);
 
             s0 = _mm_packs_epi32(s0, s1);
             s2 = _mm_packs_epi32(s2, s3);
@@ -539,10 +533,9 @@ extract_plane_yuy2_uv(const uint8_t* srcp, int width, int height, int src_pitch,
             stream_reg((__m128i*)(dstp + x / 2), s0);
         }
         if (MODE > 0) {
-            const __m128i* sw = (__m128i*)(srcp + 2 * w);
-            s0 = mask & _mm_srli_epi32(load_reg(sw + 0), PLANE == 1 ? 8 : 24);
-            s1 = MODE > 1 ? mask & _mm_srli_epi32(load_reg(sw + 1), PLANE == 1 ? 8 : 24) : s0;
-            s2 = MODE > 2 ? mask & _mm_srli_epi32(load_reg(sw + 2), PLANE == 1 ? 8 : 24) : s1;
+            s0 = mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * w) + 0), PLANE == 1 ? 8 : 24);
+            s1 = MODE > 1 ? mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * w) + 1), PLANE == 1 ? 8 : 24) : s0;
+            s2 = MODE > 2 ? mask & _mm_srli_epi32(load_reg((__m128i*)(srcp + 2 * w) + 2), PLANE == 1 ? 8 : 24) : s1;
 
             s0 = _mm_packs_epi32(s0, s1);
             s2 = _mm_packs_epi32(s2, s2);

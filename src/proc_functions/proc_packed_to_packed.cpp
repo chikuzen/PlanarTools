@@ -42,43 +42,45 @@ uint8_t* dstp, int dst_pitch)
         _mm_setr_epi8(0, 1, 2, 0x80, 3, 4, 5, 0x80, 6, 7, 8, 0x80, 9, 10, 11, 0x80);
     const __m128i m1 =
         _mm_setr_epi8(4, 5, 6, 0x80, 7, 8, 9, 0x80, 10, 11, 12, 0x80, 13, 14, 15, 0x80);
+    const __m128i alpha =
+        _mm_set1_epi32(0xFF000000);
 
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, t, d;
         for (int x = 0; x < w; x += 16) {
             s0 = load_reg((__m128i*)(srcp + 3 * x) + 0);
             d = _mm_shuffle_epi8(s0, m0);
-            stream_reg((__m128i*)(dstp + 4 * x) + 0, d);
+            stream_reg((__m128i*)(dstp + 4 * x) + 0, d | alpha);
 
             s1 = load_reg((__m128i*)(srcp + 3 * x) + 1);
             t = _mm_alignr_epi8(s1, s0, 12);
             d = _mm_shuffle_epi8(t, m0);
-            stream_reg((__m128i*)(dstp + 4 * x) + 1, d);
+            stream_reg((__m128i*)(dstp + 4 * x) + 1, d | alpha);
 
             s0 = load_reg((__m128i*)(srcp + 3 * x) + 2);
             t = _mm_alignr_epi8(s0, s1, 8);
             d = _mm_shuffle_epi8(t, m0);
-            stream_reg((__m128i*)(dstp + 4 * x) + 2, d);
-            
+            stream_reg((__m128i*)(dstp + 4 * x) + 2, d | alpha);
+
             d = _mm_shuffle_epi8(s0, m1);
-            stream_reg((__m128i*)(dstp + 4 * x) + 3, d);
+            stream_reg((__m128i*)(dstp + 4 * x) + 3, d | alpha);
         }
         if (MODE > 0) {
             s0 = load_reg((__m128i*)(srcp + 3 * w));
             d = _mm_shuffle_epi8(s0, m0);
-            stream_reg((__m128i*)(dstp + 4 * w), d);
+            stream_reg((__m128i*)(dstp + 4 * w), d | alpha);
 
             if (MODE > 1) {
                 s1 = MODE > 2 ? load_reg((__m128i*)(srcp + 3 * w) + 1) : s0;
                 t = _mm_alignr_epi8(s1, s0, 12);
                 d = _mm_shuffle_epi8(t, m0);
-                stream_reg((__m128i*)(dstp + 4 * w) + 1, d);
+                stream_reg((__m128i*)(dstp + 4 * w) + 1, d | alpha);
             }
             if (MODE > 3) {
                 s0 = MODE > 4 ? load_reg((__m128i*)(srcp + 3 * w) + 2) : s1;
                 t = _mm_alignr_epi8(s0, s1, 8);
                 d = _mm_shuffle_epi8(t, m0);
-                stream_reg((__m128i*)(dstp + 4 * w) + 2, d);
+                stream_reg((__m128i*)(dstp + 4 * w) + 2, d | alpha);
             }
         }
         srcp += src_pitch;
@@ -99,7 +101,7 @@ uint8_t* dstp, int dst_pitch)
         _mm_setr_epi8(3, 7, 11, 15, 0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14);
     const __m128i m1 =
         _mm_setr_epi8(0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 3, 7, 11, 15);
-    
+
     for (int y = 0; y < height; ++y) {
         __m128i s0, s1, d;
         for (int x = 0; x < w; x += 16) {
@@ -182,6 +184,6 @@ packed_to_packed get_24_32_converter(int pixel_type, int width)
     } else {
         mode = w > 10 ? 5 : w > 8 ? 4 : w > 5 ? 3 : w == 5 ? 2 : w > 0 ? 1 : 0;
     }
-    
+
     return func[make_pair(pixel_type, mode)];
 }

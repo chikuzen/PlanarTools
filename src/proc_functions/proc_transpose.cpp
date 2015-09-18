@@ -98,7 +98,7 @@ transpose_8x8(const uint8_t* srcp, uint8_t* dstp, const int width,
 
 static void __stdcall
 transpose_16x8(const uint8_t* srcp, uint8_t* dstp, const int width,
-const int height, const int src_pitch, const int dst_pitch)
+               const int height, const int src_pitch, const int dst_pitch)
 {
     const int h = height / 8 * 8;
     const int w = width / 16 * 16;
@@ -190,6 +190,7 @@ const int height, const int src_pitch, const int dst_pitch)
 
 }
 
+
 static void __stdcall
 transpose_bgra(const uint8_t* srcp, uint8_t* dstp, const int rowsize,
                const int height, const int src_pitch, const int dst_pitch)
@@ -197,29 +198,30 @@ transpose_bgra(const uint8_t* srcp, uint8_t* dstp, const int rowsize,
     const int h = height / 4 * 4;
     const int r = rowsize / 16 * 16;
 
-    const uint8_t *s = srcp;
+    const uint8_t* s = srcp;
 
     for (int y = 0; y < h; y += 4) {
         uint8_t* d = dstp + 4 * y;
         for (int x = 0; x < r; x += 16) {
-            __m128i s0 = load_reg((__m128i*)(srcp + x + 0 * src_pitch));
-            __m128i s1 = load_reg((__m128i*)(srcp + x + 1 * src_pitch));
-            __m128i s2 = load_reg((__m128i*)(srcp + x + 2 * src_pitch));
-            __m128i s3 = load_reg((__m128i*)(srcp + x + 3 * src_pitch));
+            __m128i s0 = load_reg((__m128i*)(s + x + 0 * src_pitch));
+            __m128i s1 = load_reg((__m128i*)(s + x + 1 * src_pitch));
+            __m128i s2 = load_reg((__m128i*)(s + x + 2 * src_pitch));
+            __m128i s3 = load_reg((__m128i*)(s + x + 3 * src_pitch));
 
             __m128i ab01 = unpacklo32(s0, s1);
             __m128i ab23 = unpackhi32(s0, s1);
             __m128i cd01 = unpacklo32(s2, s3);
             __m128i cd23 = unpackhi32(s2, s3);
+
             __m128i abcd0 = unpacklo64(ab01, cd01);
             __m128i abcd1 = unpackhi64(ab01, cd01);
             __m128i abcd2 = unpacklo64(ab23, cd23);
             __m128i abcd3 = unpackhi64(ab23, cd23);
 
-            stream_reg((__m128i*)(d + 0 * dst_pitch), abcd0);
-            stream_reg((__m128i*)(d + 1 * dst_pitch), abcd1);
-            stream_reg((__m128i*)(d + 2 * dst_pitch), abcd2);
-            stream_reg((__m128i*)(d + 3 * dst_pitch), abcd3);
+            store_reg((__m128i*)(d + 0 * dst_pitch), abcd0);
+            store_reg((__m128i*)(d + 1 * dst_pitch), abcd1);
+            store_reg((__m128i*)(d + 2 * dst_pitch), abcd2);
+            store_reg((__m128i*)(d + 3 * dst_pitch), abcd3);
 
             d += 4 * dst_pitch;
         }
