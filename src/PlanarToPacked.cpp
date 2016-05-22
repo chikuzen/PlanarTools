@@ -23,13 +23,55 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 */
 
 
+#include <map>
 #include "PlanarTools.h"
+#include "proc_functions/planar_to_packed.h"
+
+
+
+planar_to_packed get_packed_converter(int pixel_type, int width, bool ssse3)
+{
+    using std::make_pair;
+
+    std::map<std::pair<int, int>, planar_to_packed> func;
+
+    if (ssse3) {
+        func[make_pair(VideoInfo::CS_BGR24, 0)] = planar_to_bgr24_ssse3<0>;
+        func[make_pair(VideoInfo::CS_BGR24, 1)] = planar_to_bgr24_ssse3<1>;
+    } else {
+        func[make_pair(VideoInfo::CS_BGR24, 0)] = planar_to_bgr24<0>;
+        func[make_pair(VideoInfo::CS_BGR24, 1)] = planar_to_bgr24<1>;
+        func[make_pair(VideoInfo::CS_BGR24, 2)] = planar_to_bgr24<2>;
+        func[make_pair(VideoInfo::CS_BGR24, 3)] = planar_to_bgr24<3>;
+        func[make_pair(VideoInfo::CS_BGR24, 4)] = planar_to_bgr24<4>;
+        func[make_pair(VideoInfo::CS_BGR24, 5)] = planar_to_bgr24<5>;
+    }
+    func[make_pair(VideoInfo::CS_YUY2, 0)] = planar_to_yuy2<0>;
+    func[make_pair(VideoInfo::CS_YUY2, 1)] = planar_to_yuy2<1>;
+
+    int mode;
+    if (pixel_type == VideoInfo::CS_BGR24) {
+        if (!ssse3) {
+            int w = width - (width + 5) / 32 * 32;
+            mode = w > 21 ? 5 : w > 16 ? 4 : w > 10 ? 3 : w > 5 ? 2 : w > 0 ? 1 : 0;
+        } else {
+            mode = !!(width - (width + 5) / 16 * 16);
+        }
+    } else {
+        mode = !!(width - (width + 7) / 16 * 16);
+    }
+
+    return func[make_pair(pixel_type, mode)];
+}
+
 
 
 PlanarToPacked::PlanarToPacked(PClip _child, bool ssse3) : GVFmod(_child)
 {
     vi.pixel_type = vi.IsYV16() ? VideoInfo::CS_YUY2 : VideoInfo::CS_BGR24;
     convert = get_packed_converter(vi.pixel_type, vi.width, ssse3);
+
+    child->SetCacheHints(CACHE_NOTHING, 0);
 }
 
 
@@ -81,6 +123,8 @@ Yx3ToPacked::Yx3ToPacked(PClip c0, PClip c1, PClip c2, int pix_type, bool ssse3)
     vi.pixel_type = pix_type;
     convert = get_packed_converter(pix_type, vi.width, ssse3);
     vi_src.pixel_type = VideoInfo::CS_Y8;
+
+    child->SetCacheHints(CACHE_NOTHING, 0);
 }
 
 
@@ -145,6 +189,20 @@ create(AVSValue args, void* user_data, IScriptEnvironment* env)
 
 
 
+planar_to_bgra get_bgra_converter(int width)
+{
+    planar_to_bgra array[] = {
+        planar_to_bgr32<0>,
+        planar_to_bgr32<1>,
+        planar_to_bgr32<2>,
+        planar_to_bgr32<3>
+    };
+
+    int w = width - (width + 3) / 16 * 16;
+    int mode = w > 8 ? 3 : w > 4 ? 2 : w > 0 ? 1 : 0;
+
+    return array[mode];
+}
 
 
 PlanarToBGRA::PlanarToBGRA(PClip base, PClip _a) : GVFmod(base), alpha(_a)
@@ -153,6 +211,8 @@ PlanarToBGRA::PlanarToBGRA(PClip base, PClip _a) : GVFmod(base), alpha(_a)
     vi_a.pixel_type = VideoInfo::CS_Y8;
     convert = get_bgra_converter(vi.width);
     vi.pixel_type = VideoInfo::CS_BGR32;
+
+    child->SetCacheHints(CACHE_NOTHING, 0);
 }
 
 
@@ -220,6 +280,8 @@ Yx4ToBGRA::Yx4ToBGRA(PClip cg, PClip cb, PClip cr, PClip ca)
     convert = get_bgra_converter(vi.width);
     vi.pixel_type = VideoInfo::CS_BGR32;
     vi_src.pixel_type = VideoInfo::CS_Y8;
+
+    child->SetCacheHints(CACHE_NOTHING, 0);
 }
 
 

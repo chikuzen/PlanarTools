@@ -10,10 +10,10 @@ difficult to use, and optimization is insufficient.
 
 Requirement:
 =============
- - avisynth2.60 or avisynth+.
+ - avisynth2.60 or later / avisynth+r1579 or greater
  - SSE2 capable CPU.
  - WindowsVista sp2 or later.
- - Visual C++ Redistributable Package for Visual Studio 2013.
+ - Visual C++ Redistributable Package for Visual Studio 2015.
 
 Syntax:
 =========
@@ -109,7 +109,7 @@ Note:
 - All filters are SSE2 optimized. Thus these will cause crash on No SSE2 machine.
 - RGBToRGB requires SSSE3. If SSSE3 is not available on your machine, it invoke internal ConvertToRGB24/ConvertToRGB32 filter instead.
 
-Lisence:
+License:
 ==========
 GPL v2 or later.
 

@@ -3,7 +3,7 @@ simd.h
 
 This file is part of PlanarTools
 
-Copyright (C) 2015 OKA Motofumi
+Copyright (C) 2015-2016 OKA Motofumi
 
 Author: OKA Motofumi (chikuzen.mo at gmail dot com)
 
@@ -23,9 +23,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 */
 
 
-#include <immintrin.h>
 
-#pragma warning(disable:4752)
+#ifndef PLANARTOOLS_SIMD_H
+#define PLANARTOOLS_SIMD_H
+
+
+#include <tmmintrin.h> // SSSE3
+
 
 #define SFINLINE static __forceinline
 
@@ -52,19 +56,29 @@ SFINLINE __m128i rshift(const __m128i& x)
     return _mm_slli_si128(x, N);
 }
 
-SFINLINE __m128i load_reg(__m128i* x)
+SFINLINE __m128i load_reg(const uint8_t* addr)
 {
-    return _mm_load_si128(x);
+    return _mm_load_si128(reinterpret_cast<const __m128i*>(addr));
 }
 
-SFINLINE void stream_reg(__m128i* addr, __m128i& x)
+SFINLINE __m128i load_l(const uint8_t* addr)
 {
-    _mm_stream_si128(addr, x);
+    return _mm_loadl_epi64(reinterpret_cast<const __m128i*>(addr));
 }
 
-SFINLINE void store_reg(__m128i* addr, __m128i& x)
+SFINLINE void stream_reg(uint8_t* addr, __m128i& x)
 {
-    _mm_store_si128(addr, x);
+    _mm_stream_si128(reinterpret_cast<__m128i*>(addr), x);
+}
+
+SFINLINE void store_reg(uint8_t* addr, __m128i& x)
+{
+    _mm_store_si128(reinterpret_cast<__m128i*>(addr), x);
+}
+
+SFINLINE void store_l(uint8_t* addr, __m128i& x)
+{
+    _mm_storel_epi64(reinterpret_cast<__m128i*>(addr), x);
 }
 
 SFINLINE __m128i unpacklo8(const __m128i& x, const __m128i& y)
@@ -140,3 +154,5 @@ SFINLINE __m128i movelh(const __m128i& x, const __m128i& y)
     __m128 t = _mm_castsi128_ps(x);
     return _mm_castps_si128(_mm_movelh_ps(_mm_castsi128_ps(x), _mm_castsi128_ps(y)));
 }
+
+#endif

@@ -33,14 +33,23 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
 {
     AVS_linkage = vectors;
 
-    env->AddFunction("Transpose", "c", &Transpose::create, nullptr);
-    env->AddFunction("PackedToPlanar", "c", &PackedToPlanar::create, nullptr);
-    env->AddFunction("ExtractPlane", "c[plane]i", &ExtractPlane::create, nullptr);
-    env->AddFunction("PlanarToPacked", "c", &PlanarToPacked::create, nullptr);
-    env->AddFunction("PlanarToPacked", "ccc", &Yx3ToPacked::create, nullptr);
-    env->AddFunction("PlanarToRGB32", "cc", &PlanarToBGRA::create, nullptr);
-    env->AddFunction("PlanarToRGB32", "cccc", &Yx4ToBGRA::create, nullptr);
-    env->AddFunction("RGBToRGB", "c", &PackedRGBToRGB::create, nullptr);
+    env->AddFunction("Transpose", "c", Transpose::create, nullptr);
+    env->AddFunction("PackedToPlanar", "c", PackedToPlanar::create, nullptr);
+    env->AddFunction("ExtractPlane", "c[plane]i", ExtractPlane::create, nullptr);
+    env->AddFunction("PlanarToPacked", "c", PlanarToPacked::create, nullptr);
+    env->AddFunction("PlanarToPacked", "ccc", Yx3ToPacked::create, nullptr);
+    env->AddFunction("PlanarToRGB32", "cc", PlanarToBGRA::create, nullptr);
+    env->AddFunction("PlanarToRGB32", "cccc", Yx4ToBGRA::create, nullptr);
+    env->AddFunction("RGBToRGB", "c", PackedRGBToRGB::create, nullptr);
+
+    if (env->FunctionExists("SetFilterMTMode")) {
+        auto env2 = static_cast<IScriptEnvironment2*>(env);
+        env2->SetFilterMTMode("PackedToPlanar", MT_NICE_FILTER, true);
+        env2->SetFilterMTMode("PlanarToPacked", MT_NICE_FILTER, true);
+        env2->SetFilterMTMode("PackedToRGB32", MT_NICE_FILTER, true);
+        env2->SetFilterMTMode("ExtractPlane", MT_NICE_FILTER, true);
+        env2->SetFilterMTMode("RGBToRGB", MT_NICE_FILTER, true);
+    }
 
     return "PlanarTools ver." PLANAR_TOOLS_VERSION " by OKA Motofumi";
 }

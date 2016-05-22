@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 
 
 #include "PlanarTools.h"
+#include "proc_functions/transpose.h"
 
 
 Transpose::Transpose(PClip _child) : GVFmod(_child)
@@ -32,6 +33,8 @@ Transpose::Transpose(PClip _child) : GVFmod(_child)
     vi.width = vi_src.height;
     vi.height = vi_src.width;
     proc_transpose = get_transpose_function(vi.pixel_type);
+
+    child->SetCacheHints(CACHE_NOTHING, 0);
 }
 
 

@@ -23,15 +23,52 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 */
 
 
+#include <map>
 #include "PlanarTools.h"
+#include "proc_functions/packed_to_packed.h"
+
+
+
+packed_to_packed get_24_32_converter(int pixel_type, int width) noexcept
+{
+    using std::make_pair;
+    std::map<std::pair<int, int>, packed_to_packed> func;
+
+    func[make_pair(VideoInfo::CS_BGR24, 0)] = bgr24_to_bgr32<0>;
+    func[make_pair(VideoInfo::CS_BGR24, 1)] = bgr24_to_bgr32<1>;
+    func[make_pair(VideoInfo::CS_BGR24, 2)] = bgr24_to_bgr32<2>;
+    func[make_pair(VideoInfo::CS_BGR24, 3)] = bgr24_to_bgr32<3>;
+    func[make_pair(VideoInfo::CS_BGR24, 4)] = bgr24_to_bgr32<4>;
+    func[make_pair(VideoInfo::CS_BGR24, 5)] = bgr24_to_bgr32<5>;
+
+    func[make_pair(VideoInfo::CS_BGR32, 0)] = bgr32_to_bgr24<0>;
+    func[make_pair(VideoInfo::CS_BGR32, 1)] = bgr32_to_bgr24<1>;
+    func[make_pair(VideoInfo::CS_BGR32, 2)] = bgr32_to_bgr24<2>;
+    func[make_pair(VideoInfo::CS_BGR32, 3)] = bgr32_to_bgr24<3>;
+    func[make_pair(VideoInfo::CS_BGR32, 4)] = bgr32_to_bgr24<4>;
+    func[make_pair(VideoInfo::CS_BGR32, 5)] = bgr32_to_bgr24<5>;
+
+    int w = width - (width + 3) / 16 * 16;
+    int mode;
+    if (pixel_type == VideoInfo::CS_BGR24) {
+        mode = w > 10 ? 5 : w > 8 ? 4 : w > 5 ? 3 : w > 4 ? 2 : w > 0 ? 1 : 0;
+    } else {
+        mode = w > 10 ? 5 : w > 8 ? 4 : w > 5 ? 3 : w == 5 ? 2 : w > 0 ? 1 : 0;
+    }
+
+    return func[make_pair(pixel_type, mode)];
+}
 
 
 PackedRGBToRGB::PackedRGBToRGB(PClip _child) : GVFmod(_child)
 {
     convert = get_24_32_converter(vi.pixel_type, vi.width);
+
     vi.pixel_type = 
         vi.pixel_type == VideoInfo::CS_BGR32 ? VideoInfo::CS_BGR24
         : VideoInfo::CS_BGR32;
+
+    child->SetCacheHints(CACHE_NOTHING, 0);
 }
 
 
