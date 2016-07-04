@@ -76,10 +76,7 @@ PVideoFrame __stdcall PackedRGBToRGB::GetFrame(int n, IScriptEnvironment* env)
 {
     auto src = child->GetFrame(n, env);
     if (!is_aligned_frame(src->GetReadPtr())) {
-        auto alt = env->NewVideoFrame(vi_src);
-        env->BitBlt(alt->GetWritePtr(), alt->GetPitch(), src->GetReadPtr(),
-            src->GetPitch(), src->GetRowSize(), src->GetHeight());
-        src = alt;
+        env->MakeWritable(&src);
     }
 
     auto dst = env->NewVideoFrame(vi);
@@ -105,6 +102,5 @@ create(AVSValue args, void* user_data, IScriptEnvironment* env)
         return new PackedRGBToRGB(clip);
     }
 
-    const char* filter = vi.IsRGB24() ? "ConvertToRGB32" : "ConvertToRGB24";
-    return env->Invoke(filter, args);
+    return env->Invoke(vi.IsRGB24() ? "ConvertToRGB32" : "ConvertToRGB24", clip);
 }

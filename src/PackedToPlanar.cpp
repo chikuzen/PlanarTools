@@ -82,10 +82,7 @@ PVideoFrame __stdcall PackedToPlanar::GetFrame(int n, IScriptEnvironment* env)
 {
     auto src = child->GetFrame(n, env);
     if (!is_aligned_frame(src->GetReadPtr())) {
-        auto alt = env->NewVideoFrame(vi_src);
-        env->BitBlt(alt->GetWritePtr(), alt->GetPitch(), src->GetReadPtr(),
-            src->GetPitch(), src->GetRowSize(), src->GetHeight());
-        src = alt;
+        env->MakeWritable(&src);
     }
 
     auto dst = env->NewVideoFrame(vi);
@@ -240,10 +237,7 @@ PVideoFrame __stdcall ExtractPlane::GetFrame(int n, IScriptEnvironment* env)
 {
     auto src = child->GetFrame(n, env);
     if (!is_aligned_frame(src->GetReadPtr())) {
-        auto alt = env->NewVideoFrame(vi_src);
-        env->BitBlt(alt->GetWritePtr(), alt->GetPitch(), src->GetReadPtr(),
-            src->GetPitch(), src->GetRowSize(), src->GetHeight());
-        src = alt;
+        env->MakeWritable(&src);
     }
 
     auto dst = env->NewVideoFrame(vi);

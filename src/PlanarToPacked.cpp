@@ -79,13 +79,7 @@ PVideoFrame __stdcall PlanarToPacked::GetFrame(int n, IScriptEnvironment* env)
 {
     auto src = child->GetFrame(n, env);
     if (!is_aligned_frame(src, 16)) {
-        auto alt = env->NewVideoFrame(vi_src);
-        for (const auto p : { PLANAR_Y, PLANAR_U, PLANAR_V }) {
-            env->BitBlt(
-                alt->GetWritePtr(p), alt->GetPitch(p), src->GetReadPtr(p),
-                src->GetPitch(p), src->GetRowSize(p), src->GetHeight(p));
-        }
-        src = alt;
+        env->MakeWritable(&src);
     }
 
     auto dst = env->NewVideoFrame(vi);
@@ -136,11 +130,7 @@ PVideoFrame __stdcall Yx3ToPacked::GetFrame(int n, IScriptEnvironment* env)
     for (int i = 0; i < 3; ++i) {
         srcs[i] = clips[i]->GetFrame(n, env);
         if (!is_aligned_frame(srcs[i]->GetReadPtr())) {
-            auto alt = env->NewVideoFrame(vi_src);
-            env->BitBlt(
-                alt->GetWritePtr(), alt->GetPitch(), srcs[i]->GetReadPtr(),
-                srcs[i]->GetPitch(), vi_src.width, vi_src.height);
-            srcs[i] = alt;
+            env->MakeWritable(&(srcs[i]));
         }
     }
 
@@ -221,18 +211,10 @@ PVideoFrame __stdcall PlanarToBGRA::GetFrame(int n, IScriptEnvironment* env)
     auto base = child->GetFrame(n, env);
     auto alpha = this->alpha->GetFrame(n, env);
     if (!is_aligned_frame(base)) {
-        auto alt = env->NewVideoFrame(vi_src);
-        for (const auto p : { PLANAR_Y, PLANAR_U, PLANAR_V }) {
-            env->BitBlt(alt->GetWritePtr(p), alt->GetPitch(p),
-                base->GetReadPtr(p), base->GetPitch(p), vi.width, vi.height);
-        }
-        base = alt;
+        env->MakeWritable(&base);
     }
     if ((uintptr_t)alpha->GetReadPtr() & 15) {
-        auto alt = env->NewVideoFrame(vi_a);
-        env->BitBlt(alt->GetWritePtr(), alt->GetPitch(), alpha->GetReadPtr(),
-            alpha->GetPitch(), vi.width, vi.height);
-        alpha = alt;
+        env->MakeWritable(&alpha);
     }
 
     auto dst = env->NewVideoFrame(vi);
@@ -293,11 +275,7 @@ PVideoFrame __stdcall Yx4ToBGRA::GetFrame(int n, IScriptEnvironment* env)
     for (int i = 0; i < 4; ++i) {
         srcs[i] = clips[i]->GetFrame(n, env);
         if (!is_aligned_frame(srcs[i]->GetReadPtr())) {
-            auto alt = env->NewVideoFrame(vi_src);
-            env->BitBlt(
-                alt->GetWritePtr(), alt->GetPitch(), srcs[i]->GetReadPtr(),
-                srcs[i]->GetPitch(), vi.width, vi.height);
-            srcs[i] = alt;
+            env->MakeWritable(&(srcs[i]));
         }
     }
 

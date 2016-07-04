@@ -10,7 +10,7 @@ difficult to use, and optimization is insufficient.
 
 Requirement:
 =============
- - avisynth2.60 or later / avisynth+r1579 or greater
+ - avisynth2.60 or later / avisynth+MT r2005 or greater
  - SSE2 capable CPU.
  - WindowsVista sp2 or later.
  - Visual C++ Redistributable Package for Visual Studio 2015.
