@@ -30,13 +30,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
 #include <initializer_list>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#define NOGDI
 #endif
 #include <windows.h>
 #include <avisynth.h>
 
 
 
-#define PLANAR_TOOLS_VERSION "0.3.0"
+#define PLANAR_TOOLS_VERSION "0.3.1"
 
 
 class GVFmod : public GenericVideoFilter
@@ -45,9 +47,14 @@ protected:
     VideoInfo vi_src;
 
 public:
-    GVFmod(PClip _child) : GenericVideoFilter(_child) {
+    GVFmod(PClip _child) : GenericVideoFilter(_child)
+    {
         vi_src = vi;
     };
+    int __stdcall SetCacheHints(int cache_hints, int frame_range) override
+    {
+        return cache_hints == CACHE_GET_MTMODE ? MT_NICE_FILTER : 0;
+    }
 };
 
 
